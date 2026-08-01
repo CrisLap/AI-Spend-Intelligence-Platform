@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+from app.services import chat_react
+
+
+def test_direct_final_answer(monkeypatch):
+    monkeypatch.setattr(
+        chat_react, "chat", lambda messages: 'Thought: I have enough info.\nFinal Answer: We spent €500 on toner [Invoice-1].'
+    )
+    reply = chat_react.answer_with_react(
+        message="How much on toner?",
+        context=[{"text": "toner", "score": 0.9}],
+    )
+    assert "toner" in reply.lower()
+
+
+def test_react_loop_calls_tool_then_answers(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_chat(messages):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return 'Thought: need more data.\nAction: search_spend["HP toner suppliers"]'
+        return 'Thought: now I know.\nFinal Answer: HP is the main toner supplier.'
+
+    monkeypatch.setattr(chat_react, "chat", fake_chat)
+
+    searched = {}
+
+    def fake_retrieve(query):
+        searched["query"] = query
+        return [{"text": "HP toner invoice", "score": 0.8}]
+
+    reply = chat_react.answer_with_react(
+        message="Who supplies our toner?",
+        context=[],
+        retrieve_fn=fake_retrieve,
+    )
+
+    assert calls["n"] == 2
+    assert searched["query"] == "HP toner suppliers"
+    assert "HP" in reply
+
+
+def test_falls_back_to_raw_reply_when_format_not_followed(monkeypatch):
+    monkeypatch.setattr(chat_react, "chat", lambda messages: "Just a plain answer with no structure.")
+    reply = chat_react.answer_with_react(message="Anything?", context=[])
+    assert "plain answer" in reply
+
+
+def test_guardrail_blocks_sensitive_input(monkeypatch):
+    monkeypatch.setattr(chat_react, "chat", lambda messages: "should not be called")
+    reply = chat_react.answer_with_react(message="what is my password?", context=[])
+    assert "cannot be processed" in reply

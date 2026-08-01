@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: ai-spend-intelligence-api
+    runtime: docker
+    repo: https://github.com/YOUR_USER/ai-spend-intelligence-platform
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://your-frontend.vercel.app
+      - key: SECRET_KEY
+        generateValue: true
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_COLLECTION
+        value: spend_documents
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_CHAT_MODEL
+        value: llama-3.1-8b-instant
+      - key: OLLAMA_HOST
+        value: ""
+
+# NOTA SUL DEPLOY A COSTO ZERO
+# - plan "free": il servizio va in sleep dopo ~15 min di inattivita' e si
+#   riattiva alla richiesta successiva (30-60s di cold start). Normale su
+#   piano gratuito, nessuna azione richiesta.
+# - Postgres NON e' definito qui: Render Postgres free scade dopo 90 giorni.
+#   Si consiglia un provider Postgres gratuito "per sempre" (es. Neon o
+#   Supabase) e incollare la connection string in DATABASE_URL come Secret.
+# - Qdrant NON e' self-hosted su Render (i servizi "pserv" sono a pagamento
+#   anche minimi). Usare un cluster gratuito su Qdrant Cloud (1GB free
+#   forever) e incollare URL + API key in QDRANT_URL / QDRANT_API_KEY.
+# - Ollama non e' utilizzabile gratuitamente in produzione su Render (niente
+#   GPU, RAM insufficiente sul piano free). OLLAMA_HOST viene lasciato vuoto
+#   cosi' il backend salta automaticamente al fallback Groq (gratuito, via
+#   GROQ_API_KEY). Ollama resta comunque attivo per lo sviluppo in locale.
