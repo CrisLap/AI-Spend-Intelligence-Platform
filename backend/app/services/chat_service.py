@@ -31,12 +31,20 @@ def _trim_history(messages: list[ChatMessage]) -> list[ChatMessage]:
     return list(reversed(trimmed))
 
 
-def _summarize_history(messages: list[ChatMessage], db: Session, session: ChatSession) -> str:
-    if not messages:
-        return ""
-    text = "\n".join(f"{m.role}: {m.content[:200]}" for m in messages[-10:])
+def _summarize_history(older_messages: list[ChatMessage], db: Session, session: ChatSession) -> str:
+    """Summarize the portion of history that is about to be dropped from
+    context (not the most recent messages, which stay in context verbatim).
+    Builds on any existing summary so it stays a rolling recap as the
+    conversation keeps growing, instead of only covering the latest cut."""
+    if not older_messages:
+        return session.summary or ""
+    text = "\n".join(f"{m.role}: {m.content[:200]}" for m in older_messages)
+    prompt = "Summarize this spend analysis conversation briefly, in 2-3 sentences."
+    if session.summary:
+        prompt += f"\nExisting summary so far: {session.summary}"
+    prompt += f"\nAdditional earlier messages to fold in:\n{text}"
     from app.services.ai import chat as llm_chat
-    summary = llm_chat([{"role": "user", "content": f"Summarize this spend analysis conversation briefly:\n{text}"}])
+    summary = llm_chat([{"role": "user", "content": prompt}])
     if summary and not summary.startswith("[Offline]"):
         session.summary = summary[:500]
         db.commit()
@@ -116,9 +124,13 @@ def answer_question(message: str, session_id: int | None, user_id: int) -> dict:
             .all()
         )
 
+        summary_text = ""
         if len(history) > _SUMMARY_TRIGGER_LENGTH:
-            _summarize_history(history, db, session)
-            history = _trim_history(history)
+            kept = _trim_history(history)
+            kept_ids = {m.id for m in kept}
+            older = [m for m in history if m.id not in kept_ids]
+            summary_text = _summarize_history(older, db, session)
+            history = kept
 
         context = _retrieve_context(message, user_id=user_id)
 
@@ -131,6 +143,7 @@ def answer_question(message: str, session_id: int | None, user_id: int) -> dict:
             context=context,
             conversation_history=history_dicts,
             retrieve_fn=lambda q: _retrieve_context(q, user_id=user_id),
+            history_summary=summary_text or None,
         )
 
         msg = ChatMessage(

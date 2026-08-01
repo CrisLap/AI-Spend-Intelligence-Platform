@@ -53,6 +53,7 @@ def answer_with_react(
     context: list[dict],
     conversation_history: list[dict] | None = None,
     retrieve_fn: Callable[[str], list[dict]] | None = None,
+    history_summary: str | None = None,
 ) -> str:
     """Runs a genuine ReAct loop: the model can issue further search_spend
     actions (via retrieve_fn) before committing to a Final Answer, instead of
@@ -62,8 +63,10 @@ def answer_with_react(
         return guard
 
     history_text = ""
+    if history_summary:
+        history_text += f"[Summary of earlier conversation]: {history_summary}\n"
     if conversation_history:
-        history_text = "\n".join(
+        history_text += "\n".join(
             f"{'User' if m['role'] == 'user' else 'Assistant'}: {m['content'][:300]}"
             for m in conversation_history[-6:]
         )
@@ -104,3 +107,4 @@ def answer_with_react(
         break
 
     return sanitize_output(last_reply or "I couldn't find enough information to answer that.")
+
