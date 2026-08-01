@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_role
 from app.models.audit import AuditLog
+from app.models.chat import ChatMessage, ChatSession
+from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
+from app.models.feedback import Feedback
 from app.models.user import User
 from app.schemas.user import RoleUpdate, UserOut
 from app.services.audit_service import log_action
@@ -75,4 +80,58 @@ def get_user_audit_log(
         }
         for e in entries
     ]
+
+
+@router.delete("/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    deleted_email = user.email
+
+    docs = db.query(Document).filter(Document.user_id == user_id).all()
+    doc_ids = [d.id for d in docs]
+    for d in docs:
+        try:
+            Path(d.file_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+    item_ids = [i.id for i in db.query(LineItem.id).filter(LineItem.document_id.in_(doc_ids)).all()]
+    group_ids = [
+        g.group_id
+        for g in db.query(LineItemGroupItem.group_id).filter(LineItemGroupItem.line_item_id.in_(item_ids)).distinct()
+    ]
+    session_ids = [s.id for s in db.query(ChatSession.id).filter(ChatSession.user_id == user_id).all()]
+
+    # Delete in dependency order (children before parents), mirroring the
+    # same cascade used by scripts/seed_demo_data.py's wipe_demo_data, so
+    # this works against real foreign key constraints (Postgres/Neon).
+    db.query(ChatMessage).filter(ChatMessage.session_id.in_(session_ids)).delete(synchronize_session=False)
+    db.query(ChatSession).filter(ChatSession.id.in_(session_ids)).delete(synchronize_session=False)
+    db.query(Feedback).filter(
+        (Feedback.user_id == user_id) | (Feedback.document_id.in_(doc_ids))
+    ).delete(synchronize_session=False)
+    db.query(LineItemGroupItem).filter(LineItemGroupItem.line_item_id.in_(item_ids)).delete(synchronize_session=False)
+    db.query(LineItemGroup).filter(LineItemGroup.id.in_(group_ids)).delete(synchronize_session=False)
+    db.query(LineItem).filter(LineItem.document_id.in_(doc_ids)).delete(synchronize_session=False)
+    db.query(Document).filter(Document.id.in_(doc_ids)).delete(synchronize_session=False)
+    db.query(AuditLog).filter(AuditLog.user_id == user_id).delete(synchronize_session=False)
+    db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
+    db.commit()
+
+    log_action(
+        db,
+        user_id=admin.id,
+        action="delete_user",
+        entity_type="user",
+        entity_id=user_id,
+        details={"deleted_email": deleted_email, "documents_deleted": len(doc_ids)},
+    )
+    return {"deleted": True, "user_id": user_id, "email": deleted_email, "documents_deleted": len(doc_ids)}
 
