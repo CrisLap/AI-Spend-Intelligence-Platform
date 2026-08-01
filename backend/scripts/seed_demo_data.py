@@ -1,10 +1,14 @@
 """
 Seed the database with realistic demo data for AI Spend Intelligence Platform.
 
-Creates 3 demo users and 8 processed documents (invoices/orders) spread over
-the last ~6 months, covering 7 of the 13 spend categories. The data is
-deliberately constructed - and verified against the actual detection logic,
-not just "plausible" - to trigger every detection module on first login:
+Creates 3 demo users and 9 processed documents (invoices/orders) spread over
+the last ~6 months, covering 7 of the 13 spend categories. Each document's
+source CSV is also written to disk under UPLOAD_DIR, matching the row-level
+data seeded in the database, so features that read from disk (e.g. the
+"reprocess document" endpoint) work against real files instead of a
+dangling path reference. The data is deliberately constructed - and
+verified against the actual detection logic, not just "plausible" - to
+trigger every detection module on first login:
 
   - Modulo 5 (Duplicate Detection): the same toner cartridge line appears
     twice on the same Office Depot invoice (same supplier + invoice number
@@ -37,6 +41,7 @@ running, and Qdrant indexing is skipped (not failed) if unreachable.
 from __future__ import annotations
 
 import argparse
+import csv
 import random
 import sys
 from datetime import UTC, datetime, timedelta
@@ -44,6 +49,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app.core.config import settings  # noqa: E402
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.models.document import (  # noqa: E402
@@ -162,6 +168,24 @@ DOCUMENTS = [
 DOC_TYPE_MAP = {"invoice": DocType.invoice, "order": DocType.order, "contract": DocType.contract}
 
 
+def _write_demo_file(filename: str, supplier: str | None, invoice_number: str | None, rows: list) -> tuple[str, int]:
+    """Write the CSV backing a seeded document to disk, so that features
+    reading from doc.file_path (e.g. the /process re-run endpoint) work
+    against real data instead of a dangling reference."""
+    upload_dir = Path(settings.upload_dir)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    path = upload_dir / filename
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["description", "quantity", "unit_price", "total", "supplier", "invoice_number"])
+        for row in rows:
+            desc, qty, price = row[0], row[1], row[2]
+            row_supplier = row[3] if len(row) > 3 else supplier
+            row_invoice = row[4] if len(row) > 4 else invoice_number
+            w.writerow([desc, qty, price, round(qty * price, 2), row_supplier, row_invoice])
+    return str(path), path.stat().st_size
+
+
 def _months_ago(n: int) -> datetime:
     return datetime.now(UTC) - timedelta(days=30 * n + random.randint(0, 6))
 
@@ -172,7 +196,13 @@ def wipe_demo_data(db) -> None:
     user_ids = [u.id for u in users]
     if not user_ids:
         return
-    doc_ids = [d.id for d in db.query(Document.id).filter(Document.user_id.in_(user_ids)).all()]
+    docs = db.query(Document).filter(Document.user_id.in_(user_ids)).all()
+    doc_ids = [d.id for d in docs]
+    for d in docs:
+        try:
+            Path(d.file_path).unlink(missing_ok=True)
+        except Exception:
+            pass
     item_ids = [i.id for i in db.query(LineItem.id).filter(LineItem.document_id.in_(doc_ids)).all()]
     group_ids = [
         g.group_id
@@ -206,14 +236,15 @@ def seed(db) -> None:
 
     for filename, dtype, months_ago, invoice_number, supplier, rows in DOCUMENTS:
         created = _months_ago(months_ago)
+        file_path, file_size = _write_demo_file(filename, supplier, invoice_number, rows)
         doc = Document(
             user_id=buyer.id,
             filename=filename,
             original_name=filename,
             doc_type=DOC_TYPE_MAP[dtype],
             status=DocumentStatus.processing,
-            file_path=f"./data/uploads/{filename}",
-            file_size_bytes=random.randint(2000, 50000),
+            file_path=file_path,
+            file_size_bytes=file_size,
             created_at=created,
             updated_at=created,
         )
