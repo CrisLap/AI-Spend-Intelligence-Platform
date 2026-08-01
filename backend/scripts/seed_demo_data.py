@@ -52,6 +52,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.core.config import settings  # noqa: E402
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
+from app.models.audit import AuditLog  # noqa: E402
+from app.models.chat import ChatMessage, ChatSession  # noqa: E402
 from app.models.document import (  # noqa: E402
     DocType,
     Document,
@@ -60,6 +62,7 @@ from app.models.document import (  # noqa: E402
     LineItemGroup,
     LineItemGroupItem,
 )
+from app.models.feedback import Feedback  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.services.ai import embed_text  # noqa: E402
 from app.services.anomalies import detect_anomalies  # noqa: E402
@@ -208,10 +211,23 @@ def wipe_demo_data(db) -> None:
         g.group_id
         for g in db.query(LineItemGroupItem.group_id).filter(LineItemGroupItem.line_item_id.in_(item_ids)).distinct()
     ]
+    session_ids = [
+        s.id for s in db.query(ChatSession.id).filter(ChatSession.user_id.in_(user_ids)).all()
+    ]
+
+    # Delete in dependency order (children before parents) so this works
+    # against real foreign key constraints (e.g. Postgres/Neon), not just
+    # SQLite's default lax enforcement.
+    db.query(ChatMessage).filter(ChatMessage.session_id.in_(session_ids)).delete(synchronize_session=False)
+    db.query(ChatSession).filter(ChatSession.id.in_(session_ids)).delete(synchronize_session=False)
+    db.query(Feedback).filter(
+        (Feedback.user_id.in_(user_ids)) | (Feedback.document_id.in_(doc_ids))
+    ).delete(synchronize_session=False)
     db.query(LineItemGroupItem).filter(LineItemGroupItem.line_item_id.in_(item_ids)).delete(synchronize_session=False)
     db.query(LineItemGroup).filter(LineItemGroup.id.in_(group_ids)).delete(synchronize_session=False)
     db.query(LineItem).filter(LineItem.document_id.in_(doc_ids)).delete(synchronize_session=False)
     db.query(Document).filter(Document.id.in_(doc_ids)).delete(synchronize_session=False)
+    db.query(AuditLog).filter(AuditLog.user_id.in_(user_ids)).delete(synchronize_session=False)
     db.query(User).filter(User.id.in_(user_ids)).delete(synchronize_session=False)
     db.commit()
     print(f"Wiped {len(doc_ids)} documents, {len(item_ids)} line items, {len(users)} demo users.")
@@ -355,3 +371,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
