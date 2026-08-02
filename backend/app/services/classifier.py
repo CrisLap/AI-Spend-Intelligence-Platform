@@ -41,15 +41,6 @@ def _rule_based(desc: str) -> tuple[str, float] | None:
     return best_cat, min(0.99, 0.75 + 0.08 * best_hits)
 
 
-def _embedding_based(desc: str) -> tuple[str, float]:
-    vec = embed_text(desc)
-    cats = list(_CATEGORY_EXEMPLARS.keys())
-    sims = [cosine_similarity(vec, embed_text(_CATEGORY_EXEMPLARS[c])) for c in cats]
-    best_i = max(range(len(sims)), key=lambda i: sims[i])
-    confidence = max(0.30, min(0.95, sims[best_i]))
-    return cats[best_i], confidence
-
-
 def _embedding_based_with_feedback(desc: str) -> tuple[str, float]:
     vec = embed_text(desc)
     cats = list(_CATEGORY_EXEMPLARS.keys())
@@ -70,6 +61,35 @@ def _embedding_based_with_feedback(desc: str) -> tuple[str, float]:
     return cats[best_i], confidence
 
 
+_FEEDBACK_SIM_THRESHOLD = 0.85
+
+
+def _feedback_based(desc: str) -> tuple[str, float] | None:
+    """Check for a previously user-corrected description close enough to
+    override the classification, including a rule-based keyword match.
+
+    Without this, corrections only ever get consulted inside
+    _embedding_based_with_feedback, which is reached only when
+    _rule_based finds no keyword at all - so any description containing a
+    taxonomy keyword would keep re-triggering the same mistake forever,
+    no matter how many times a user corrected it.
+    """
+    if not any(_FEEDBACK_EXEMPLARS.values()):
+        return None
+    vec = embed_text(desc)
+    best_cat, best_sim = None, 0.0
+    for cat, fb_descs in _FEEDBACK_EXEMPLARS.items():
+        for fb in fb_descs:
+            if not fb:
+                continue
+            sim = cosine_similarity(vec, embed_text(fb))
+            if sim > best_sim:
+                best_sim, best_cat = sim, cat
+    if best_cat is not None and best_sim >= _FEEDBACK_SIM_THRESHOLD:
+        return best_cat, min(0.95, best_sim)
+    return None
+
+
 _CLASSIFY_LLM_PROMPT = (
     "Classify the following spend description into one of the UNSPSC-like categories: "
     "{categories}. "
@@ -86,7 +106,7 @@ def _llm_based(desc: str) -> tuple[str, float] | None:
         import json
         parsed = json.loads(result)
         cat = parsed.get("category", "")
-        conf = float(parsed.get("confidence", 0.5))
+        conf = max(0.0, min(1.0, float(parsed.get("confidence", 0.5))))
         if cat in cats:
             return cat, conf
     except Exception:
@@ -95,6 +115,10 @@ def _llm_based(desc: str) -> tuple[str, float] | None:
 
 
 def classify_description(desc: str) -> dict:
+    feedback = _feedback_based(desc)
+    if feedback:
+        cat, conf = feedback
+        return {"description": desc, "category": cat, "confidence": conf, "method": "feedback"}
     rule = _rule_based(desc)
     if rule:
         cat, conf = rule
@@ -110,3 +134,4 @@ def classify_description(desc: str) -> dict:
 
 def classify_batch(descriptions: list[str]) -> list[dict]:
     return [classify_description(d) for d in descriptions]
+
