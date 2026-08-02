@@ -111,13 +111,28 @@ def extract_raw_text(file_path: str, filename: str) -> str:
     return ""
 
 
+_NUM = r"\d[\d.,]*\d|\d"
 _LINE_ITEM_RE = re.compile(
-    r"^(?P<desc>.+?)\s{2,}(?P<qty>\d+(?:[.,]\d+)?)\s+(?P<price>\d+(?:[.,]\d+)?)\s+(?P<total>\d+(?:[.,]\d+)?)(?:\s+\S.*)?$"
+    rf"^(?P<desc>.+?)\s{{2,}}(?P<qty>{_NUM})\s+(?P<price>{_NUM})\s+(?P<total>{_NUM})(?:\s+\S.*)?$"
 )
 
 
 def _to_float(raw: str) -> float:
-    return float(raw.replace(",", "."))
+    raw = raw.strip()
+    if "." in raw and "," in raw:
+        # Both separators present: whichever comes last is the decimal
+        # separator (e.g. "1.234,56" -> decimal ",", thousands ".";
+        # "1,234.56" -> decimal ".", thousands ",").
+        decimal_sep = "," if raw.rfind(",") > raw.rfind(".") else "."
+        thousands_sep = "." if decimal_sep == "," else ","
+        raw = raw.replace(thousands_sep, "").replace(decimal_sep, ".")
+    elif raw.count(",") > 1:
+        raw = raw.replace(",", "")  # e.g. "1,234,567" - comma-only thousands grouping
+    elif raw.count(".") > 1:
+        raw = raw.replace(".", "")  # e.g. "1.234.567" - dot-only thousands grouping
+    else:
+        raw = raw.replace(",", ".")  # single separator: treat as decimal (unchanged default)
+    return float(raw)
 
 
 def _try_parse_regex(text: str) -> list[dict]:
@@ -157,9 +172,17 @@ def parse_items(text: str, doc_type: str | None = None) -> list[dict]:
     return []
 
 
-_METADATA_RE = re.compile(r"(?:invoice|number|no\.?)\s*[:#]?\s*([A-Za-z0-9][A-Za-z0-9\-/]*)", re.IGNORECASE)
-_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4})")
-_SUPPLIER_RE = re.compile(r"(?:supplier|vendor|company)\s*[:#]?\s*(.+)", re.IGNORECASE)
+_METADATA_RE = re.compile(
+    r"(?:fattura\s*n\.?|invoice\s*(?:number|no\.?)|numero\s*fattura|"
+    r"fattura|numero|n\.|invoice|no\.?|number)"
+    r"\s*[:#]?\s*([A-Za-z0-9][A-Za-z0-9\-/]*)",
+    re.IGNORECASE,
+)
+_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})")
+_SUPPLIER_RE = re.compile(
+    r"(?:supplier|vendor|company|fornitore|venditore|azienda)\s*[:#]?\s*(.+)",
+    re.IGNORECASE,
+)
 
 
 def extract_metadata(text: str) -> dict:
@@ -176,3 +199,4 @@ def extract_metadata(text: str) -> dict:
     if m:
         supplier = m.group(1).strip()
     return {"invoice_number": inv_num, "invoice_date": inv_date, "supplier": supplier}
+
