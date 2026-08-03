@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models.document import LineItem
+from app.models.document import Document, LineItem
 from app.models.feedback import Feedback
 from app.services import classifier
 
@@ -16,13 +16,29 @@ def save_feedback(
     original_category: str | None = None,
     comment: str | None = None,
 ) -> Feedback:
+    # Ownership checks: without these, any authenticated user could submit
+    # feedback against another user's document_id/line_item_id and have
+    # this function silently overwrite that line item's classification.
+    document = db.query(Document).filter(Document.id == document_id, Document.user_id == user_id).first()
+    if not document:
+        raise ValueError("Document not found")
+
+    if corrected_category not in classifier.UNSPSC_TAXONOMY:
+        raise ValueError(f"corrected_category must be one of {sorted(classifier.UNSPSC_TAXONOMY)}")
+
     original_method = None
+    item = None
     if line_item_id:
-        item = db.query(LineItem).filter(LineItem.id == line_item_id).first()
-        if item:
-            original_category = original_category or item.category_label
-            original_method = item.classification_method
-            item.category_label = corrected_category
+        item = db.query(LineItem).filter(
+            LineItem.id == line_item_id, LineItem.document_id == document_id
+        ).first()
+        if not item:
+            raise ValueError("Line item not found for this document")
+        original_category = original_category or item.category_label
+        original_method = item.classification_method
+        item.category_label = corrected_category
+        item.classification_method = "feedback"
+
     fb = Feedback(
         user_id=user_id,
         document_id=document_id,
@@ -36,7 +52,11 @@ def save_feedback(
     db.commit()
     db.refresh(fb)
 
-    classifier.seed_feedback_exemplars([(fb.original_category or "", fb.corrected_category)])
+    # Feed the actual description text, not the category label - the
+    # classifier compares this against future descriptions via embedding
+    # similarity, so it needs real text to be of any use.
+    if item and item.description:
+        classifier.seed_feedback_exemplars([(item.description, fb.corrected_category)])
 
     return fb
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -19,18 +19,23 @@ def create_feedback(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    fb = save_feedback(
-        db=db,
-        user_id=user.id,
-        document_id=payload.document_id,
-        line_item_id=payload.line_item_id,
-        original_category=payload.original_category,
-        corrected_category=payload.corrected_category,
-        comment=payload.comment,
-    )
+    try:
+        fb = save_feedback(
+            db=db,
+            user_id=user.id,
+            document_id=payload.document_id,
+            line_item_id=payload.line_item_id,
+            original_category=payload.original_category,
+            corrected_category=payload.corrected_category,
+            comment=payload.comment,
+        )
+    except ValueError as e:
+        status = 404 if "not found" in str(e) else 400
+        raise HTTPException(status_code=status, detail=str(e)) from e
     log_action(
         db, user_id=user.id, action="submit_feedback", entity_type="line_item",
         entity_id=payload.line_item_id,
         details={"original_category": payload.original_category, "corrected_category": payload.corrected_category},
     )
     return FeedbackOut.model_validate(fb)
+
