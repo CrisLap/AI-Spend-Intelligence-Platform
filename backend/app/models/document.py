@@ -57,6 +57,7 @@ class LineItem(Base):
     is_anomaly = Column(Boolean, default=False)
     anomaly_reason = Column(Text, nullable=True)
     anomaly_score = Column(Float, nullable=True)
+    embedding_cache = Column(Text, nullable=True)  # JSON-encoded float list, lazily populated by search
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
