@@ -81,7 +81,18 @@ def retrain_from_feedback(
     feedbacks = get_feedback_for_training(db)
     if not feedbacks:
         return {"trained": 0, "message": "No new feedback to train on"}
-    pairs = [(fb.original_category or "", fb.corrected_category) for fb in feedbacks]
+
+    line_item_ids = [fb.line_item_id for fb in feedbacks if fb.line_item_id]
+    items_by_id = {}
+    if line_item_ids:
+        items = db.query(LineItem).filter(LineItem.id.in_(line_item_ids)).all()
+        items_by_id = {i.id: i for i in items}
+
+    pairs = [
+        (items_by_id[fb.line_item_id].description, fb.corrected_category)
+        for fb in feedbacks
+        if fb.line_item_id in items_by_id and items_by_id[fb.line_item_id].description
+    ]
     seed_feedback_exemplars(pairs)
     mark_trained(db, [fb.id for fb in feedbacks])
     log_action(
@@ -89,6 +100,12 @@ def retrain_from_feedback(
         user_id=user.id,
         action="retrain_classifier",
         entity_type="classifier",
-        details={"feedback_count": len(pairs)},
+        details={"feedback_count": len(feedbacks), "exemplars_added": len(pairs)},
     )
-    return {"trained": len(pairs), "message": f"Classifier updated with {len(pairs)} feedback corrections"}
+    return {
+        "trained": len(feedbacks),
+        "message": f"Classifier updated with {len(pairs)} of {len(feedbacks)} feedback corrections "
+        "(some entries had no linked line item or description and were skipped)"
+        if len(pairs) < len(feedbacks)
+        else f"Classifier updated with {len(pairs)} feedback corrections",
+    }
