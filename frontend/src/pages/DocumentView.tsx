@@ -9,9 +9,14 @@ export default function DocumentView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [doc, setDoc] = useState<Doc | null>(null);
+  const [error, setError] = useState("");
 
-  useEffect(() => { documents.get(Number(id)).then(setDoc); }, [id]);
+  useEffect(() => {
+    setError("");
+    documents.get(Number(id)).then(setDoc).catch((err: any) => setError(err.message));
+  }, [id]);
 
+  if (error) return <p className="text-danger">{error}</p>;
   if (!doc) return <p className="text-muted">Loading...</p>;
 
   return (

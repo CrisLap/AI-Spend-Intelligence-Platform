@@ -6,7 +6,7 @@ import tempfile
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
@@ -22,6 +22,20 @@ _db_path = os.path.join(tempfile.gettempdir(), "spendintel_test.db")
 if os.path.exists(_db_path):
     os.remove(_db_path)
 engine = create_engine(f"sqlite:///{_db_path}", connect_args={"check_same_thread": False})
+
+
+@event.listens_for(engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    # SQLite ignores foreign key constraints by default, unlike the
+    # Postgres/Neon database this app actually runs against in production -
+    # several real bugs (deleting a row while dependents still reference it)
+    # went unnoticed in this test suite for exactly that reason. Enabling
+    # this makes the test database enforce the same constraints as prod.
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 Base.metadata.create_all(bind=engine)
 TestSessionLocal = sessionmaker(bind=engine)
 

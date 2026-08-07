@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from sqlalchemy.orm import Session
+
 from app.core.database import SessionLocal
 from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
 
 
-def get_dashboard(user_id: int | None = None) -> dict:
-    db = SessionLocal()
+def get_dashboard(user_id: int | None = None, db: Session | None = None) -> dict:
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
     try:
         q_items = db.query(LineItem)
         q_docs = db.query(Document)
-        if user_id:
+        if user_id is not None:
             q_items = q_items.join(Document).filter(Document.user_id == user_id)
             q_docs = q_docs.filter(Document.user_id == user_id)
 
@@ -23,7 +28,7 @@ def get_dashboard(user_id: int | None = None) -> dict:
         anomaly_count = sum(1 for i in items if i.is_anomaly)
 
         q_dup_groups = db.query(LineItemGroup.id).distinct()
-        if user_id:
+        if user_id is not None:
             q_dup_groups = (
                 db.query(LineItemGroup.id)
                 .join(LineItemGroupItem, LineItemGroupItem.group_id == LineItemGroup.id)
@@ -76,4 +81,5 @@ def get_dashboard(user_id: int | None = None) -> dict:
             "top_categories": top_cats,
         }
     finally:
-        db.close()
+        if close_db:
+            db.close()

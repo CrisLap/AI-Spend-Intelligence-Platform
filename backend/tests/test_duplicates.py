@@ -30,3 +30,25 @@ def test_same_invoice_different_products_are_not_duplicates():
     ]
     groups = find_duplicates(items)
     assert groups == []
+
+
+def test_exact_match_reports_similarity_of_one():
+    items = [
+        FakeItem("Toner HP", 180.0, "Office Depot", "INV-001"),
+        FakeItem("Toner HP", 180.0, "Office Depot", "INV-001"),
+    ]
+    groups = find_duplicates(items)
+    assert groups[0]["similarity"] == 1.0
+
+
+def test_semantic_match_reports_its_real_similarity_not_a_fake_one():
+    """A group formed only via embedding similarity (not an exact
+    supplier+invoice+description match) must report the real computed
+    score, not always claim 100% similarity."""
+    items = [
+        FakeItem("Toner cartridge HP LaserJet 415A black", 180.0),
+        FakeItem("Toner cartridge HP LaserJet 415A colour", 180.0),
+    ]
+    groups = find_duplicates(items, threshold=0.5)
+    assert len(groups) == 1
+    assert 0.5 <= groups[0]["similarity"] < 1.0

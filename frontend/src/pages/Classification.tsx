@@ -4,12 +4,18 @@ import { classification as clsApi } from "../api";
 export default function Classification() {
   const [input, setInput] = useState("");
   const [results, setResults] = useState<any[] | null>(null);
+  const [error, setError] = useState("");
 
   async function handle() {
     const descs = input.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!descs.length) return;
-    const res = await clsApi.classify(descs);
-    setResults(res.results);
+    setError("");
+    try {
+      const res = await clsApi.classify(descs);
+      setResults(res.results);
+    } catch (err: any) {
+      setError(err.message);
+    }
   }
 
   return (
@@ -18,6 +24,7 @@ export default function Classification() {
       <p className="text-xs text-muted">Enter one or more descriptions (one per line) to classify them automatically.</p>
       <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={6} placeholder="HP LaserJet Toner&#10;Legal consulting&#10;Flight New York-London" className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
       <button onClick={handle} className="self-start rounded bg-teal px-4 py-1.5 text-xs font-semibold text-surface">Classify</button>
+      {error && <p className="text-xs text-danger">{error}</p>}
       {results && (
         <div className="rounded border border-border bg-panel overflow-hidden">
           <table className="w-full text-sm">

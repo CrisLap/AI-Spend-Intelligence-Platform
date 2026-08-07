@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.document import DocType, Document, DocumentStatus, LineItem
+from app.models.document import DocType, Document, DocumentStatus, LineItem, LineItemGroup, LineItemGroupItem
+from app.models.feedback import Feedback
 from app.models.user import User
 from app.schemas.document import DocumentOut, DocumentWithItems, LineItemOut
 from app.services.ai import embed_text
@@ -18,6 +19,40 @@ from app.services.duplicates import find_duplicates
 from app.services.vector_store import delete_line_items, upsert_line_item
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+
+def _clear_document_children(db: Session, document_id: int) -> list[int]:
+    """Delete everything that depends on this document's line items
+    (duplicate groups, feedback) and the line items themselves.
+
+    Used both before re-processing a document (so re-running /process
+    doesn't pile up duplicate line items on top of the old ones) and before
+    deleting a document outright (so the delete doesn't violate foreign key
+    constraints on Postgres/Neon - SQLite doesn't enforce these by default,
+    which is why this went unnoticed in local testing).
+
+    Returns the deleted line item ids, so the caller can also clear the
+    matching vectors from Qdrant.
+    """
+    item_ids = [i.id for i in db.query(LineItem.id).filter(LineItem.document_id == document_id).all()]
+    group_ids = []
+    if item_ids:
+        group_ids = [
+            g.group_id
+            for g in db.query(LineItemGroupItem.group_id)
+            .filter(LineItemGroupItem.line_item_id.in_(item_ids))
+            .distinct()
+        ]
+    db.query(Feedback).filter(Feedback.document_id == document_id).delete(synchronize_session=False)
+    if item_ids:
+        db.query(LineItemGroupItem).filter(
+            LineItemGroupItem.line_item_id.in_(item_ids)
+        ).delete(synchronize_session=False)
+    if group_ids:
+        db.query(LineItemGroup).filter(LineItemGroup.id.in_(group_ids)).delete(synchronize_session=False)
+    db.query(LineItem).filter(LineItem.document_id == document_id).delete(synchronize_session=False)
+    db.commit()
+    return item_ids
 
 ALLOWED_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".xls", ".png", ".jpg", ".jpeg", ".tiff", ".bmp"}
 
@@ -87,6 +122,12 @@ def process_document(
         raw_text = extract_raw_text(doc.file_path, doc.filename)
         doc.raw_text = raw_text
 
+        # Re-processing an already-processed document must replace its line
+        # items, not pile new ones on top of the old ones.
+        old_item_ids = _clear_document_children(db, doc.id)
+        if old_item_ids:
+            delete_line_items(old_item_ids)
+
         metadata = extract_metadata(raw_text)
         parsed = parse_items(raw_text, doc.doc_type.value if doc.doc_type else None)
 
@@ -140,7 +181,7 @@ def process_document(
                         },
                     )
 
-            dup_groups = find_duplicates(items)
+            dup_groups = find_duplicates(items, threshold=settings.duplicate_similarity_threshold)
             if dup_groups:
                 from app.models.document import LineItemGroup, LineItemGroupItem
                 for g in dup_groups:
@@ -207,7 +248,7 @@ def delete_document(
     doc = db.query(Document).filter(Document.id == doc_id, Document.user_id == user.id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    item_ids = [i.id for i in db.query(LineItem.id).filter(LineItem.document_id == doc.id).all()]
+    item_ids = _clear_document_children(db, doc.id)
     original_name = doc.original_name
     db.delete(doc)
     db.commit()

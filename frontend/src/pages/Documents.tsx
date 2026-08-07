@@ -7,10 +7,11 @@ type Doc = { id: number; original_name: string; doc_type: string; status: string
 export default function Documents() {
   const [list, setList] = useState<Doc[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  function load() { documents.list().then(setList); }
+  function load() { setError(""); documents.list().then(setList).catch((err: any) => setError(err.message)); }
   useEffect(load, []);
 
   async function handleUpload() {
@@ -25,6 +26,10 @@ export default function Documents() {
     finally { setUploading(false); fileRef.current!.value = ""; }
   }
 
+  function handleDelete(id: number) {
+    documents.delete(id).then(load).catch((err: any) => alert(err.message));
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -36,6 +41,7 @@ export default function Documents() {
           </button>
         </div>
       </div>
+      {error && <p className="text-xs text-danger">{error}</p>}
       <div className="rounded border border-border bg-panel overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
@@ -49,7 +55,7 @@ export default function Documents() {
                 <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${d.status === "classified" ? "bg-ok/10 text-ok" : d.status === "failed" ? "bg-danger/10 text-danger" : "bg-amber/10 text-amber"}`}>{d.status}</span></td>
                 <td className="p-3 text-muted text-xs">{new Date(d.created_at).toLocaleDateString()}</td>
                 <td className="p-3 text-right">
-                  <button onClick={(e) => { e.stopPropagation(); documents.delete(d.id).then(load); }} className="text-xs text-danger hover:underline">Delete</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(d.id); }} className="text-xs text-danger hover:underline">Delete</button>
                 </td>
               </tr>
             ))}

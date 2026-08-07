@@ -17,6 +17,11 @@ def find_duplicates(items: list[LineItem], threshold: float = 0.88) -> list[dict
         if i in used:
             continue
         cluster = [i]
+        # Real similarity of each joined item to the anchor - an exact match
+        # is 1.0 by definition, a semantic match keeps its actual cosine
+        # score, instead of the group always being reported as 100% similar
+        # even when it was only an approximate match.
+        cluster_similarities: list[float] = []
         for j in range(i + 1, len(items)):
             if j in used:
                 continue
@@ -33,11 +38,13 @@ def find_duplicates(items: list[LineItem], threshold: float = 0.88) -> list[dict
             )
             if exact:
                 cluster.append(j)
+                cluster_similarities.append(1.0)
                 continue
             if a.description and b.description:
                 sim = cosine_similarity(embed_text(a.description), embed_text(b.description))
                 if sim >= threshold and _amounts_close(a.total, b.total):
                     cluster.append(j)
+                    cluster_similarities.append(sim)
         if len(cluster) > 1:
             used.update(cluster)
             reason = (
@@ -47,7 +54,9 @@ def find_duplicates(items: list[LineItem], threshold: float = 0.88) -> list[dict
             )
             groups.append({
                 "reason": reason,
-                "similarity": 1.0,
+                # Report the weakest link in the cluster, not an
+                # optimistic/fake 1.0 - a conservative, honest figure.
+                "similarity": round(min(cluster_similarities), 4) if cluster_similarities else 1.0,
                 "items": [{
                     "id": items[k].id,
                     "description": items[k].description,

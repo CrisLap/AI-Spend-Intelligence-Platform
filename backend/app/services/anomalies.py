@@ -153,10 +153,16 @@ def detect_anomalies(items: list[LineItem], db: Session | None = None) -> list[d
                 "category": r["category"],
                 "is_anomaly": False,
                 "anomalies": [],
+                "zscore": 0.0,
             }
         merged[lid]["is_anomaly"] = merged[lid]["is_anomaly"] or r["is_anomaly"]
         merged[lid]["unit_price"] = merged[lid]["unit_price"] or r.get("unit_price")
         merged[lid]["quantity"] = merged[lid]["quantity"] or r.get("quantity")
+        # Keep the most extreme of the price/quantity z-scores seen for this
+        # line item, not just whichever came last - this used to be
+        # discarded entirely and overwritten with a flat 0.0 below.
+        if abs(r["score"]) > abs(merged[lid]["zscore"]):
+            merged[lid]["zscore"] = r["score"]
         if r["is_anomaly"]:
             merged[lid]["anomalies"].append(r["reason"])
 
@@ -181,10 +187,10 @@ def detect_anomalies(items: list[LineItem], db: Session | None = None) -> list[d
                     "category": sr["category"],
                     "is_anomaly": sr["is_anomaly"],
                     "anomalies": [sr["reason"]] if sr["is_anomaly"] else [],
+                    "zscore": sr.get("score", 0.0),
                 })
 
     for r in results:
         r["reason"] = "; ".join(r["anomalies"]) if r["anomalies"] else "within normal range"
-        r["zscore"] = 0.0
 
     return results

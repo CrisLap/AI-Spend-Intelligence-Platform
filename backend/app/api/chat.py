@@ -48,5 +48,6 @@ def delete_session(session_id: int, user: User = Depends(get_current_user), db: 
     if not session:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Session not found")
+    db.query(ChatMessage).filter(ChatMessage.session_id == session_id).delete(synchronize_session=False)
     db.delete(session)
     db.commit()

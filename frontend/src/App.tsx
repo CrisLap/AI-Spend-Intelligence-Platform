@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { getToken, setToken, auth } from "./api";
+import { getToken, setToken, setUnauthorizedHandler, auth } from "./api";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -18,6 +18,19 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // A 401 from ANY request (not just the initial session check) must log
+    // the user out and send them back to login - previously only the very
+    // first load checked this, so an expired token mid-session left every
+    // page silently failing with no way back in short of a manual logout.
+    setUnauthorizedHandler(() => {
+      setToken(null);
+      setUser(null);
+      navigate("/login");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [navigate]);
 
   useEffect(() => {
     if (getToken()) {

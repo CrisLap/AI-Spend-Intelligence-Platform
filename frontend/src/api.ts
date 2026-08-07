@@ -9,12 +9,21 @@ export function setToken(t: string | null) {
 }
 export function getToken() { return _token; }
 
+// Any page that gets a 401 (expired/invalid token) needs the whole app to
+// react - clear the token and send the user back to the login screen -
+// not just fail silently where the request happened to be made.
+let _onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  _onUnauthorized = fn;
+}
+
 async function request(path: string, opts: RequestInit = {}) {
   const headers: Record<string,string> = { ...(opts.headers as Record<string,string> || {}) };
   if (_token) headers["Authorization"] = `Bearer ${_token}`;
   if (!(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
   const res = await fetch(`${API}${path}`, { ...opts, headers });
   if (!res.ok) {
+    if (res.status === 401 && _onUnauthorized) _onUnauthorized();
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || res.statusText);
   }

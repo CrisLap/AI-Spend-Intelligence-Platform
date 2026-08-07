@@ -5,14 +5,16 @@ type Anom = { id: number; description: string; unit_price: number; category: str
 
 export default function AnomaliesPage() {
   const [list, setList] = useState<Anom[]>([]);
+  const [error, setError] = useState("");
 
-  useEffect(() => { anomalies.list().then(setList); }, []);
+  useEffect(() => { anomalies.list().then(setList).catch((err: any) => setError(err.message)); }, []);
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold">Detected Anomalies</h1>
       <p className="text-xs text-muted">Spend items that deviate significantly from their category average.</p>
-      {list.length === 0 && <p className="text-ok text-sm">No anomalies detected.</p>}
+      {error && <p className="text-danger text-sm">{error}</p>}
+      {!error && list.length === 0 && <p className="text-ok text-sm">No anomalies detected.</p>}
       <div className="flex flex-col gap-2">
         {list.map((a) => (
           <div key={a.id} className="rounded border border-danger/30 bg-danger/5 p-3">

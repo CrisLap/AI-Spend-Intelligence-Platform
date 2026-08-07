@@ -5,13 +5,15 @@ type DupGroup = { id: number; reason: string; similarity: number; items: { id: n
 
 export default function DuplicatesPage() {
   const [groups, setGroups] = useState<DupGroup[]>([]);
+  const [error, setError] = useState("");
 
-  useEffect(() => { duplicates.list().then(setGroups); }, []);
+  useEffect(() => { duplicates.list().then(setGroups).catch((err: any) => setError(err.message)); }, []);
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold">Detected Duplicates</h1>
-      {groups.length === 0 && <p className="text-ok text-sm">No duplicates detected.</p>}
+      {error && <p className="text-danger text-sm">{error}</p>}
+      {!error && groups.length === 0 && <p className="text-ok text-sm">No duplicates detected.</p>}
       <div className="flex flex-col gap-4">
         {groups.map((g) => (
           <div key={g.id} className="rounded border border-amber/30 bg-amber/5 p-3">
