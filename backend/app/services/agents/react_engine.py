@@ -214,11 +214,14 @@ def iter_react_steps(
             continue
 
         # Model didn't follow the format, referenced an unknown tool, or
-        # we're out of steps: stop and treat the raw reply as the answer
-        # rather than looping forever.
+        # we're out of steps: stop rather than looping forever. Falls back
+        # to the parsed `thought` (plain prose) instead of the raw reply,
+        # since a reply that reached this point may still contain an
+        # unexecuted "Action: tool[...]" line - showing that verbatim as
+        # the "answer" would leak internal ReAct syntax to the end user.
         break
 
-    final_answer = last_reply or "I couldn't find enough information to answer that."
+    final_answer = thought or last_reply or "I couldn't find enough information to answer that."
     step_obj = ReactStep(index=steps_yielded, thought=None, tool=None, tool_input=None, observation=None, mode=None)
     yield step_obj, final_answer
 

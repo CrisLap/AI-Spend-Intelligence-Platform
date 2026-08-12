@@ -70,10 +70,11 @@ def test_multi_tool_loop_dispatches_to_the_named_tool():
     assert trace.final_answer == "Microsoft spend rose."
 
 
-def test_unknown_tool_name_falls_back_to_raw_reply():
+def test_unknown_tool_name_falls_back_to_parsed_thought():
     """The model naming a tool that isn't registered must not crash the
-    loop - it should stop and surface the raw reply, same as the
-    'model didn't follow the format' fallback."""
+    loop - it should stop and surface the parsed `Thought:` text, not the
+    raw reply (which would leak the unexecuted `Action: tool[...]` syntax
+    to the end user)."""
 
     def fake_chat(messages):
         return 'Thought: x.\nAction: nonexistent_tool["y"]'
@@ -88,7 +89,8 @@ def test_unknown_tool_name_falls_back_to_raw_reply():
         max_steps=2,
     )
 
-    assert "Action: nonexistent_tool" in trace.final_answer
+    assert trace.final_answer == "x."
+    assert "Action:" not in trace.final_answer
 
 
 def test_max_steps_is_respected_even_without_a_final_answer():
