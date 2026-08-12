@@ -1,6 +1,6 @@
 # AI Spend Intelligence Platform
 
-[![CI](https://github.com/YOUR_USER/ai-spend-intelligence-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USER/ai-spend-intelligence-platform/actions/workflows/ci.yml)
+[![CI](https://github.com/CrisLap/AI-Spend-Intelligence-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/CrisLap/AI-Spend-Intelligence-Platform/actions/workflows/ci.yml)
 
 An enterprise AI platform that combines Retrieval-Augmented Generation and autonomous AI agents to analyze company spend, identify inefficiencies, and recommend cost-saving opportunities. Supports the entire lifecycle: document ingestion, UNSPSC classification, semantic search, RAG chat, a family of goal-driven multi-tool agents (Cost Saving, Forecast, Contract Risk) sharing one ReAct engine, anomaly and duplicate detection, analytics dashboard, and feedback-driven improvement loops.
 
@@ -227,7 +227,13 @@ in `.env.example`.
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
 | `OLLAMA_CHAT_MODEL` | `llama3.2` | Model for chat completions |
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Model for embeddings |
+| `OLLAMA_TIMEOUT` | `30` | Seconds before falling back to Groq (or offline) when Ollama doesn't respond |
+| `GROQ_API_KEY` | _(unset)_ | Enables the Groq cloud fallback when Ollama is unreachable |
+| `GROQ_CHAT_MODEL` | `llama-3.1-8b-instant` | Groq model used for the fallback |
+| `GROQ_TIMEOUT` | `30` | Seconds before falling back to the offline deterministic reply |
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant vector DB URL |
+| `QDRANT_API_KEY` | _(unset)_ | Required for Qdrant Cloud, unused for a local/self-hosted instance |
+| `QDRANT_COLLECTION` | `spend_documents` | Qdrant collection for invoice/order line items |
 | `QDRANT_CONTRACT_COLLECTION` | `spend_contracts` | Separate Qdrant collection for contract-clause chunks (contract point ids reuse the DB's own ids, so this must not collide with `QDRANT_COLLECTION`) |
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Allowed CORS origins |
 | `ANOMALY_ZSCORE_THRESHOLD` | `2.5` | Z-score anomaly threshold |
@@ -276,7 +282,8 @@ backend/
       classifier.py          → 3-tier classification (rule → embedding → LLM)
       vector_store.py        → Qdrant integration (line-item + contract-chunk collections)
       contract_intelligence.py → contract text chunking, embedding, semantic clause search
-      cost_saving_agent.py   → Cost Saving Agent: runs the ReAct loop + the Recommendation Engine
+      cost_saving_agent.py   → Cost Saving / Forecast / Contract Risk agents: runs the ReAct loop + the Recommendation Engine (agent_type param)
+      assistant_router.py    → intent classifier for POST /assistant (rule-based tiers -> LLM fallback)
       agents/
         react_engine.py      → generic multi-tool ReAct loop (Thought/Action/Observation)
         tools.py              → Cost Saving Agent's tool registry, wrapping existing services
@@ -285,7 +292,7 @@ backend/
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
   scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
-  tests/               → 100 pytest tests
+  tests/               → 132 pytest tests
   Dockerfile
 frontend/
   src/
