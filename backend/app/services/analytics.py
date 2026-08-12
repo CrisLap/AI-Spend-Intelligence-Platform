@@ -151,3 +151,62 @@ def get_supplier_variance(
     finally:
         if close_db:
             db.close()
+
+
+def forecast_next_month_spend(
+    user_id: int | None = None, db: Session | None = None, min_months: int = 3
+) -> dict:
+    """Simple linear-trend forecast of next month's total spend, fit with
+    ordinary least squares over each month's actual total - no external ML
+    library, consistent with this codebase's transparent-heuristic style
+    (see cost_saving_agent.py). Needs at least min_months of history to fit
+    a trend at all; returns {"available": False, ...} otherwise rather than
+    guessing off too little data.
+
+    Contract documents are excluded for the same reason
+    get_supplier_variance() excludes them: a contract's line item is
+    typically a one-time total face value, not a recurring monthly charge,
+    and would distort the trend.
+    """
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+    try:
+        q = db.query(LineItem).join(Document).filter(Document.doc_type != DocType.contract)
+        if user_id is not None:
+            q = q.filter(Document.user_id == user_id)
+        items = q.all()
+
+        by_month: dict[str, float] = defaultdict(float)
+        for i in items:
+            if i.created_at:
+                by_month[i.created_at.strftime("%Y-%m")] += i.total or 0
+
+        months = sorted(by_month.keys())
+        if len(months) < min_months:
+            return {
+                "available": False,
+                "reason": f"not enough monthly history to forecast (need at least {min_months} months, have {len(months)})",
+            }
+
+        totals = [round(by_month[m], 2) for m in months]
+        n = len(totals)
+        xs = list(range(n))
+        mean_x = sum(xs) / n
+        mean_y = sum(totals) / n
+        denominator = sum((x - mean_x) ** 2 for x in xs)
+        slope = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, totals)) / denominator if denominator else 0.0
+        intercept = mean_y - slope * mean_x
+        forecast = max(round(intercept + slope * n, 2), 0.0)
+
+        return {
+            "available": True,
+            "months": months,
+            "monthly_totals": totals,
+            "trend_per_month": round(slope, 2),
+            "forecast_next_month": forecast,
+        }
+    finally:
+        if close_db:
+            db.close()

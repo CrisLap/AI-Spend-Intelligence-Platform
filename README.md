@@ -2,18 +2,23 @@
 
 [![CI](https://github.com/YOUR_USER/ai-spend-intelligence-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USER/ai-spend-intelligence-platform/actions/workflows/ci.yml)
 
-An enterprise AI platform that combines Retrieval-Augmented Generation and autonomous AI agents to analyze company spend, identify inefficiencies, and recommend cost-saving opportunities. Supports the entire lifecycle: document ingestion, UNSPSC classification, semantic search, RAG chat, a goal-driven multi-tool Cost Saving Agent, anomaly and duplicate detection, analytics dashboard, and feedback-driven improvement loops.
+An enterprise AI platform that combines Retrieval-Augmented Generation and autonomous AI agents to analyze company spend, identify inefficiencies, and recommend cost-saving opportunities. Supports the entire lifecycle: document ingestion, UNSPSC classification, semantic search, RAG chat, a family of goal-driven multi-tool agents (Cost Saving, Forecast, Contract Risk) sharing one ReAct engine, anomaly and duplicate detection, analytics dashboard, and feedback-driven improvement loops.
 
 ## Architecture
 
 ```
                                    User
                                     |
+                                    v
+                       assistant_router.py (POST /assistant)
+                       intent classifier: rule-based tiers -> LLM fallback
+                                    |
                        +------------+------------+
                        |                          |
                        v                          v
-              Chat (RAG assistant)        Cost Saving Agent
-              chat_react.py               cost_saving_agent.py
+              Chat (RAG assistant)        Cost Saving / Forecast / Contract Risk Agent
+              chat_react.py               cost_saving_agent.py (agent_type param)
+              (answered inline)           (handoff suggestion -> prefilled agent page)
                        |                          |
                        v                          v
               react_engine.py  <-- generic multi-tool ReAct loop -->
@@ -23,6 +28,7 @@ An enterprise AI platform that combines Retrieval-Augmented Generation and auton
                        |                 +-- supplier_variance  (analytics.py)
                        |                 +-- anomaly_scan       (anomalies.py)
                        |                 +-- contract_search    (contract_intelligence.py)
+                       |                 +-- forecast_spend     (analytics.py)
                        v                          v
               Qdrant: spend_documents    Qdrant: spend_contracts
                                                    |
@@ -71,6 +77,9 @@ numbers.
 | 10 | User Management | JWT auth, RBAC (Admin/Buyer/Finance), audit logging |
 | 11 | Cost Saving Agent | Goal-driven multi-tool agent (spend overview, supplier variance, anomaly scan, contract clause search) built on a generic, reusable ReAct engine; a deterministic Recommendation Engine turns real query results into cited, estimated-saving opportunities; every run is persisted with a full audit trail |
 | 12 | Contract Intelligence | Contract full text is chunked and semantically indexed (separate Qdrant collection) so clauses - auto-renewal, penalties - are searchable, not just line items |
+| 13 | Forecast Agent | Same agent framework, one tool: projects next month's total spend with a linear-trend fit over real monthly history (`agent_type=forecast`) |
+| 14 | Contract Risk Agent | Same agent framework and contract-clause RAG as the Cost Saving Agent, searched for risk language instead - penalties, exclusivity, missing price caps (`agent_type=contract_risk`) |
+| 15 | AI Assistant (intent router) | `POST /assistant` is a single entry point that classifies a message as a spend question or an agent goal (rule-based keyword tiers, LLM fallback) and routes it: a spend question is answered by the RAG chat inline, a cost-saving/forecast/contract-risk goal comes back as a handoff suggestion the Chat page uses to jump to the Cost Saving Agent page, prefilled and ready to run |
 
 ## Quick Start
 
@@ -201,9 +210,11 @@ in `.env.example`.
 | GET | `/chat/sessions` | List chat sessions |
 | GET | `/chat/sessions/{id}/messages` | Get chat history |
 | DELETE | `/chat/sessions/{id}` | Delete a session |
-| POST | `/cost-saving/analyze` | Run the Cost Saving Agent for a goal, get back a ReAct trace + cited recommendations |
-| GET | `/cost-saving/history` | List past agent runs for the current user |
+| POST | `/cost-saving/analyze` | Run an agent for a goal (`agent_type`: `cost_saving` \| `forecast` \| `contract_risk`), get back a ReAct trace + cited recommendations |
+| GET | `/cost-saving/analyze/stream` | Same as above, streamed live as `text/event-stream` (`step` events, then a `done` event) |
+| GET | `/cost-saving/history` | List past agent runs for the current user (optionally filtered by `agent_type`) |
 | GET | `/cost-saving/history/{id}` | Get a single past agent run |
+| POST | `/assistant` | Single intent-routed entry point: a spend question is answered inline (same shape as `/chat`); a cost-saving/forecast/contract-risk goal returns a `suggestion` (`agent_type` + `goal`) instead of running the agent inline |
 
 ## Environment Variables
 
@@ -227,6 +238,9 @@ in `.env.example`.
 ```bash
 cd backend
 python -m pytest tests/ -v
+
+cd frontend
+npm test
 ```
 
 ## RAG Evaluation
@@ -242,7 +256,7 @@ Measures retrieval precision, answer relevance, and faithfulness against a curat
 
 | Workflow | Trigger | Jobs |
 |----------|---------|------|
-| `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), frontend typecheck (tsc), frontend build (vite) |
+| `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), frontend typecheck (tsc), frontend build (vite), frontend tests (vitest) |
 | `cd.yml` | Push to `main` | Build Docker image → push to GHCR → deploy to Render |
 
 ## Project Structure
@@ -283,15 +297,14 @@ frontend/
 
 ## Roadmap
 
-Fase 2 (not yet implemented, but designed - see the project's internal
-planning notes): live SSE streaming of agent steps instead of the current
-staged client-side reveal of an already-complete response; native JSON
-function-calling via Groq's `tools=` param as an alternative to the
-text-parsed ReAct format for providers that support it; a single "AI
-Assistant" entry point that routes between the Chat RAG and the Cost Saving
-Agent by intent instead of two separate pages; additional specialized
-agents (forecasting, contract-risk) built on the same `react_engine.py` +
-tool-registry pattern; a frontend test suite (Vitest).
+Shipped in Fase 2 so far:
+- **Native function-calling.** `app/services/ai.py::chat_with_tools()` asks Groq's OpenAI-compatible endpoint for structured `tool_calls` (via `tools=`) once Ollama is unreachable; the Cost Saving Agent runs on this path (`ReactStep.mode == "structured"`), while the single-tool Chat RAG deliberately keeps the original text-parsed ReAct format (`mode == "text_parsed"`) - both are visible in the agent's step trace.
+- **Frontend test suite.** Vitest + React Testing Library cover `AgentStepTimeline` and `RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
+- **Live SSE streaming.** `GET /cost-saving/analyze/stream` emits each ReAct step as it happens instead of the whole trace at once; `react_engine.py`'s loop is a generator (`iter_react_steps()`) that both this and the batch `run_react()` consume, so there's one implementation of the loop, not two. The frontend reads it via `fetch()` + `ReadableStream` rather than `EventSource`, specifically so the `Authorization: Bearer` header this app's auth relies on everywhere else still works - `EventSource` can't send custom headers, and a query-string token would leak into browser history/server logs.
+- **Additional specialized agents.** The Forecast and Contract Risk agents (modules 13-14 above) reuse the same `react_engine.py` + tool-registry pattern as the Cost Saving Agent - a new agent is a new tool registry, system prompt and recommendation function, not new infrastructure. All three share one table (`AgentRun.agent_type`), one endpoint (`agent_type` param) and one frontend page (a type selector), instead of three separate REST/UI stacks.
+- **Unified "AI Assistant" intent router.** `POST /assistant` (module 15 above) classifies a message with the same rule-then-LLM tiering style as the UNSPSC classifier, then either answers it inline (spend question) or hands it off (cost-saving/forecast/contract-risk goal). The frontend deliberately keeps Chat and the Cost Saving Agent as two separate pages rather than merging their very different UIs (a chat thread vs. a live multi-step agent trace) into one component - Chat instead renders a "this looks like an agent goal" suggestion card that navigates to the Cost Saving Agent page with the goal and agent type prefilled.
+
+Fase 2 is now complete end-to-end - every item planned for it has shipped and been verified (automated tests + manual browser runs), not just the MVP.
 
 ## License
 

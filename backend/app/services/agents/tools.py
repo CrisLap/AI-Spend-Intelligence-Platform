@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.document import Document, LineItem
 from app.services.agents.react_engine import Tool
-from app.services.analytics import get_dashboard, get_supplier_variance
+from app.services.analytics import forecast_next_month_spend, get_dashboard, get_supplier_variance
 from app.services.anomalies import detect_anomalies
 from app.services.contract_intelligence import search_contracts
 
@@ -77,6 +77,43 @@ def _contract_search_tool(user_id: int, db: Session):
     return _call
 
 
+def _forecast_tool(user_id: int, db: Session):
+    def _call(_query: str) -> str:
+        result = forecast_next_month_spend(user_id=user_id, db=db)
+        if not result["available"]:
+            return result["reason"]
+        history = ", ".join(f"{m}: €{t:,.2f}" for m, t in zip(result["months"], result["monthly_totals"]))
+        return (
+            f"Monthly spend history: {history}.\n"
+            f"Linear trend: €{result['trend_per_month']:+,.2f}/month.\n"
+            f"Forecast for next month: €{result['forecast_next_month']:,.2f}."
+        )
+
+    return _call
+
+
+def contract_search_tool_for(user_id: int, db: Session) -> Tool:
+    return Tool(
+        name="contract_search",
+        description=(
+            "semantic search over indexed contract text - e.g. auto-renewal "
+            "clauses, expiration dates, penalty terms. Input: a search query."
+        ),
+        fn=_contract_search_tool(user_id, db),
+    )
+
+
+def forecast_tool_for(user_id: int, db: Session) -> Tool:
+    return Tool(
+        name="forecast_spend",
+        description=(
+            "get a linear-trend forecast of next month's total spend based on "
+            'monthly history. Input is ignored - pass "forecast".'
+        ),
+        fn=_forecast_tool(user_id, db),
+    )
+
+
 def build_tools(user_id: int, db: Session) -> list[Tool]:
     """The Cost Saving Agent's tool registry - each tool wraps an existing,
     already-tested service function so every number the agent reasons over
@@ -107,12 +144,24 @@ def build_tools(user_id: int, db: Session) -> list[Tool]:
             ),
             fn=_anomaly_scan_tool(user_id, db),
         ),
-        Tool(
-            name="contract_search",
-            description=(
-                "semantic search over indexed contract text - e.g. auto-renewal "
-                "clauses, expiration dates, penalty terms. Input: a search query."
-            ),
-            fn=_contract_search_tool(user_id, db),
-        ),
+        contract_search_tool_for(user_id, db),
     ]
+
+
+def build_forecast_tools(user_id: int, db: Session) -> list[Tool]:
+    """The Forecast Agent's tool registry: just the forecast itself, plus
+    the same spend overview the Cost Saving Agent uses for context - kept
+    deliberately narrow so this agent stays focused on one question."""
+    return [forecast_tool_for(user_id, db), Tool(
+        name="spend_overview",
+        description='get an overview of total spend and top categories. Input is ignored - pass "overview".',
+        fn=_spend_overview_tool(user_id, db),
+    )]
+
+
+def build_contract_risk_tools(user_id: int, db: Session) -> list[Tool]:
+    """The Contract Risk Agent's tool registry: reuses the exact same
+    contract_search tool the Cost Saving Agent uses for renewal clauses -
+    only the system prompt and search queries around it differ (see
+    cost_saving_agent.py's _CONTRACT_RISK_SEARCH_QUERIES)."""
+    return [contract_search_tool_for(user_id, db)]

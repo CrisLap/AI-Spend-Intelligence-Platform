@@ -66,6 +66,50 @@ def _groq_chat(messages: list[dict]) -> str | None:
         return None
 
 
+def _groq_chat_with_tools(messages: list[dict], tools: list[dict]) -> dict | None:
+    if not settings.groq_api_key:
+        return None
+    try:
+        r = httpx.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+            json={"model": settings.groq_chat_model, "messages": messages, "tools": tools},
+            timeout=settings.groq_timeout,
+        )
+        r.raise_for_status()
+        choices = r.json().get("choices", [])
+        if not choices:
+            return None
+        message = choices[0]["message"]
+        return {"content": message.get("content"), "tool_calls": message.get("tool_calls")}
+    except Exception:
+        return None
+
+
+def chat_with_tools(messages: list[dict], tools: list[dict]) -> dict:
+    """Structured function-calling when the active provider supports it.
+
+    Ollama - the primary/local provider - is tried first as plain chat:
+    small local models don't reliably honor a `tools=` parameter, so this
+    deliberately doesn't ask Ollama for structured calls, it just returns
+    its text reply for the caller to parse with the existing ReAct text
+    format (Thought/Action/Observation). Only once Ollama is unreachable
+    (Groq becomes the active provider, e.g. in production) does this
+    attempt genuine JSON tool-calling via Groq's OpenAI-compatible `tools=`
+    parameter, reading structured `tool_calls` instead of regex-parsing
+    free text.
+
+    Returns {"content": str | None, "tool_calls": list[dict] | None}.
+    """
+    text = _ollama_chat(messages)
+    if text:
+        return {"content": text, "tool_calls": None}
+    structured = _groq_chat_with_tools(messages, tools)
+    if structured:
+        return structured
+    return {"content": _offline_fallback(messages), "tool_calls": None}
+
+
 def embed_text(text: str) -> np.ndarray:
     vec = _ollama_embed(text)
     if vec is not None:

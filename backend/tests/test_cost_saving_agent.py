@@ -81,10 +81,14 @@ def test_contract_recommendations_use_real_contract_search(db, monkeypatch):
 
 def test_analyze_persists_a_run_with_trace_and_recommendations(db, monkeypatch):
     """Smoke test for the full analyze() pipeline: the ReAct trace comes
-    from chat() (mocked here, same as chat_react's tests), and the
-    recommendations come from the deterministic engine regardless of what
-    the mocked model said - the two are intentionally decoupled."""
-    monkeypatch.setattr(cost_saving_agent, "chat", lambda messages: "Thought: ok.\nFinal Answer: Nothing more to check.")
+    from chat_with_tools() (mocked here, structured mode - see
+    react_engine.py), and the recommendations come from the deterministic
+    engine regardless of what the mocked model said - the two are
+    intentionally decoupled."""
+    monkeypatch.setattr(
+        cost_saving_agent, "chat_with_tools",
+        lambda messages, tools: {"content": "Thought: ok.\nFinal Answer: Nothing more to check.", "tool_calls": None},
+    )
     monkeypatch.setattr(cost_saving_agent, "search_contracts", lambda *a, **kw: [])
     monkeypatch.setattr(cost_saving_agent, "get_supplier_variance", lambda **kw: [])
 

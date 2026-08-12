@@ -17,6 +17,44 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
   _onUnauthorized = fn;
 }
 
+export type SSEEvent = { event: string; data: any };
+
+// Parses a text/event-stream response into {event, data} objects as they
+// arrive. Deliberately not EventSource: EventSource can't send the
+// Authorization header this app's auth relies on everywhere else, so this
+// reads the stream via fetch()+ReadableStream instead, which does support
+// custom headers - see backend/app/api/cost_saving.py's endpoint docstring
+// for the same tradeoff on the server side.
+async function* streamSSE(path: string): AsyncGenerator<SSEEvent> {
+  const headers: Record<string, string> = {};
+  if (_token) headers["Authorization"] = `Bearer ${_token}`;
+  const res = await fetch(`${API}${path}`, { headers });
+  if (!res.ok) {
+    if (res.status === 401 && _onUnauthorized) _onUnauthorized();
+    throw new Error(`Stream request failed (${res.status})`);
+  }
+  if (!res.body) throw new Error("Streaming is not supported by this browser/response");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const raw = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      const eventMatch = raw.match(/^event: (.+)$/m);
+      const dataMatch = raw.match(/^data: ([\s\S]+)$/m);
+      if (dataMatch) {
+        yield { event: eventMatch?.[1] ?? "message", data: JSON.parse(dataMatch[1]) };
+      }
+    }
+  }
+}
+
 async function request(path: string, opts: RequestInit = {}) {
   const headers: Record<string,string> = { ...(opts.headers as Record<string,string> || {}) };
   if (_token) headers["Authorization"] = `Bearer ${_token}`;
@@ -93,10 +131,18 @@ export const duplicates = {
 };
 
 export const costSaving = {
-  analyze: (goal: string) =>
-    request("/cost-saving/analyze", { method: "POST", body: JSON.stringify({ goal }) }),
-  history: (skip = 0, limit = 20) => request(`/cost-saving/history?skip=${skip}&limit=${limit}`),
+  analyze: (goal: string, agent_type = "cost_saving") =>
+    request("/cost-saving/analyze", { method: "POST", body: JSON.stringify({ goal, agent_type }) }),
+  analyzeStream: (goal: string, agent_type = "cost_saving") =>
+    streamSSE(`/cost-saving/analyze/stream?goal=${encodeURIComponent(goal)}&agent_type=${agent_type}`),
+  history: (skip = 0, limit = 20, agent_type?: string) =>
+    request(`/cost-saving/history?skip=${skip}&limit=${limit}${agent_type ? `&agent_type=${agent_type}` : ""}`),
   historyRun: (id: number) => request(`/cost-saving/history/${id}`),
+};
+
+export const assistant = {
+  send: (message: string, session_id?: number) =>
+    request("/assistant", { method: "POST", body: JSON.stringify({ message, session_id }) }),
 };
 
 export const feedback = {

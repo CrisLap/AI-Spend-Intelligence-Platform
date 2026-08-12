@@ -6,6 +6,12 @@ export type AgentStep = {
   tool?: string | null;
   tool_input?: string | null;
   observation?: string | null;
+  mode?: string | null;
+};
+
+const MODE_LABEL: Record<string, string> = {
+  structured: "tool call",
+  text_parsed: "ReAct text",
 };
 
 // The backend returns the full trace in one response (no streaming exists
@@ -51,6 +57,11 @@ export default function AgentStepTimeline({ steps, animate = true }: { steps: Ag
             <p className="mt-1 text-teal">
               <span className="text-muted">Action:</span> {s.tool}
               {s.tool_input ? `("${s.tool_input}")` : ""}
+              {s.mode && (
+                <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                  {MODE_LABEL[s.mode] ?? s.mode}
+                </span>
+              )}
             </p>
           )}
           {s.observation && (

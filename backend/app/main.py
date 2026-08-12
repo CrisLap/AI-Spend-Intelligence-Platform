@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     analytics,
     anomalies,
+    assistant,
     auth,
     chat,
     classification,
@@ -71,3 +72,4 @@ app.include_router(duplicates.router)
 app.include_router(analytics.router)
 app.include_router(feedback.router)
 app.include_router(cost_saving.router)
+app.include_router(assistant.router)
