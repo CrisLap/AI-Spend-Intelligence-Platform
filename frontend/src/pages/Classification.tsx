@@ -29,13 +29,14 @@ export default function Classification() {
         <div className="rounded border border-border bg-panel overflow-hidden">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
-              <th className="p-3">Description</th><th className="p-3">Category</th><th className="p-3">Confidence</th><th className="p-3">Method</th>
+              <th className="p-3">Description</th><th className="p-3">Category</th><th className="p-3">UNSPSC</th><th className="p-3">Confidence</th><th className="p-3">Method</th>
             </tr></thead>
             <tbody>
               {results.map((r, i) => (
                 <tr key={i} className="border-b border-border/60">
                   <td className="p-3">{r.description}</td>
                   <td className="p-3"><span className="text-xs bg-teal/10 text-teal px-2 py-0.5 rounded">{r.category}</span></td>
+                  <td className="p-3 text-xs text-muted">{r.unspsc || "-"}</td>
                   <td className="p-3">{(r.confidence * 100).toFixed(0)}%</td>
                   <td className="p-3 text-xs text-muted">{r.method}</td>
                 </tr>

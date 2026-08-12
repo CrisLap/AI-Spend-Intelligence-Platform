@@ -3,11 +3,27 @@ import { anomalies } from "../api";
 
 type Anom = { id: number; description: string; unit_price: number; category: string; supplier: string | null; zscore: number; reason: string; };
 
+const PAGE_SIZE = 50;
+
 export default function AnomaliesPage() {
   const [list, setList] = useState<Anom[]>([]);
   const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  useEffect(() => { anomalies.list().then(setList).catch((err: any) => setError(err.message)); }, []);
+  useEffect(() => {
+    anomalies.list(0, PAGE_SIZE)
+      .then((res: Anom[]) => { setList(res); setHasMore(res.length === PAGE_SIZE); })
+      .catch((err: any) => setError(err.message));
+  }, []);
+
+  function loadMore() {
+    setLoadingMore(true);
+    anomalies.list(list.length, PAGE_SIZE)
+      .then((res: Anom[]) => { setList((prev) => [...prev, ...res]); setHasMore(res.length === PAGE_SIZE); })
+      .catch((err: any) => alert(err.message))
+      .finally(() => setLoadingMore(false));
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -31,6 +47,11 @@ export default function AnomaliesPage() {
           </div>
         ))}
       </div>
+      {hasMore && (
+        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
+          {loadingMore ? "Loading..." : "Load more"}
+        </button>
+      )}
     </div>
   );
 }

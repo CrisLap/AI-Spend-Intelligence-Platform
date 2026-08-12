@@ -18,6 +18,24 @@ UNSPSC_TAXONOMY: dict[str, list[str]] = {
     "HR & Personnel Services": ["training", "recruitment", "personnel", "payroll", "hr"],
 }
 
+# Real UNSPSC segment/family codes (the granularity that best fits these
+# broad spend categories), verified against the public UNSPSC codeset.
+UNSPSC_CODES: dict[str, str] = {
+    "Office Equipment & Supplies": "44120000",  # Family: Office supplies
+    "Computer Equipment & Accessories": "43210000",  # Family: Computer Equipment and Accessories
+    "Networking Equipment": "43220000",  # Family: Data Voice or Multimedia Network Equipment or Platforms and Accessories
+    "Software & Digital Licenses": "43230000",  # Family: Software
+    "Building & Facility Maintenance": "72000000",  # Segment: Building and Facility Construction and Maintenance Services
+    "Professional & Consulting Services": "80000000",  # Segment: Management and Business Professionals and Administrative Services
+    "Travel & Transportation": "90000000",  # Segment: Travel and Food and Lodging and Entertainment Services
+    "Raw Materials & Components": "11000000",  # Segment: Mineral and Textile and Inedible Plant and Animal Materials
+    "Utilities & Energy": "83000000",  # Segment: Public Utilities and Public Sector Related Services
+    "Medical & Healthcare": "42000000",  # Segment: Medical Equipment and Accessories and Supplies
+    "Marketing & Advertising": "80140000",  # Family: Sales and business promotion activities
+    "Furniture & Furnishings": "56000000",  # Segment: Furniture and Furnishings
+    "HR & Personnel Services": "80110000",  # Family: Human resources services
+}
+
 _CATEGORY_EXEMPLARS = {c: f"{c}: " + ", ".join(kws) for c, kws in UNSPSC_TAXONOMY.items()}
 
 _FEEDBACK_EXEMPLARS: dict[str, list[str]] = {c: [] for c in UNSPSC_TAXONOMY}
@@ -118,18 +136,18 @@ def classify_description(desc: str) -> dict:
     feedback = _feedback_based(desc)
     if feedback:
         cat, conf = feedback
-        return {"description": desc, "category": cat, "confidence": conf, "method": "feedback"}
+        return {"description": desc, "category": cat, "unspsc": UNSPSC_CODES.get(cat, ""), "confidence": conf, "method": "feedback"}
     rule = _rule_based(desc)
     if rule:
         cat, conf = rule
-        return {"description": desc, "category": cat, "confidence": conf, "method": "rule_based"}
+        return {"description": desc, "category": cat, "unspsc": UNSPSC_CODES.get(cat, ""), "confidence": conf, "method": "rule_based"}
     emb = _embedding_based_with_feedback(desc)
     cat, conf = emb
     llm = _llm_based(desc)
     if llm and llm[1] > conf:
         cat, conf = llm
-        return {"description": desc, "category": cat, "confidence": conf, "method": "llm"}
-    return {"description": desc, "category": cat, "confidence": conf, "method": "embedding"}
+        return {"description": desc, "category": cat, "unspsc": UNSPSC_CODES.get(cat, ""), "confidence": conf, "method": "llm"}
+    return {"description": desc, "category": cat, "unspsc": UNSPSC_CODES.get(cat, ""), "confidence": conf, "method": "embedding"}
 
 
 def classify_batch(descriptions: list[str]) -> list[dict]:

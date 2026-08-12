@@ -34,8 +34,8 @@ async function request(path: string, opts: RequestInit = {}) {
 export const auth = {
   login: (email: string, password: string) =>
     request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
-  register: (email: string, password: string, full_name: string, role?: string) =>
-    request("/auth/register", { method: "POST", body: JSON.stringify({ email, password, full_name, role: role ?? "buyer" }) }),
+  register: (email: string, password: string, full_name: string) =>
+    request("/auth/register", { method: "POST", body: JSON.stringify({ email, password, full_name }) }),
   me: () => request("/auth/me"),
 };
 
@@ -57,6 +57,15 @@ export const classification = {
     request("/classification", { method: "POST", body: JSON.stringify({ descriptions }) }),
   updateItem: (id: number, data: Record<string,string|null>) =>
     request(`/classification/line-items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  retrain: () => request("/classification/retrain", { method: "POST" }),
+};
+
+export const users = {
+  list: () => request("/users"),
+  updateRole: (id: number, role: string) =>
+    request(`/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  auditLog: (id: number, limit = 100) => request(`/users/${id}/audit-log?limit=${limit}`),
+  delete: (id: number) => request(`/users/${id}`, { method: "DELETE" }),
 };
 
 export const search = {

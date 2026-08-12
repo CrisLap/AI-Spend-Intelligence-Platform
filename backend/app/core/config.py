@@ -30,7 +30,6 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
-    unspsc_version: str = "v23"
     anomaly_zscore_threshold: float = 2.5
     duplicate_similarity_threshold: float = 0.88
 

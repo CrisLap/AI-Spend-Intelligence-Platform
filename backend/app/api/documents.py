@@ -140,8 +140,8 @@ def process_document(
                 unit_price=float(p.get("unit_price", 0)),
                 total=float(p.get("total", 0)),
                 supplier=p.get("supplier") or metadata.get("supplier"),
-                invoice_number=p.get("invoice_number") or metadata.get("invoice_number"),
-                invoice_date=p.get("invoice_date") or metadata.get("invoice_date"),
+                invoice_number=p.get("invoice_number") or p.get("order_number") or p.get("contract_number") or metadata.get("invoice_number"),
+                invoice_date=p.get("invoice_date") or p.get("order_date") or p.get("start_date") or metadata.get("invoice_date"),
             )
             db.add(item)
             items.append(item)

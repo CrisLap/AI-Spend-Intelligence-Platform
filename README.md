@@ -61,13 +61,13 @@ npm install
 npm run dev
 ```
 
-### Docker (full stack)
+### Docker (backend services)
 
 ```bash
 docker compose up -d
 ```
 
-This starts: API (`:8000`), PostgreSQL, Qdrant (`:6333`), Ollama (`:11434`).
+This starts: API (`:8000`), PostgreSQL, Qdrant (`:6333`), Ollama (`:11434`). It does **not** include the frontend — start that separately with `npm run dev` as shown above.
 
 ### Demo Data
 
@@ -173,7 +173,7 @@ in `.env.example`.
 | `OLLAMA_CHAT_MODEL` | `llama3.2` | Model for chat completions |
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Model for embeddings |
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant vector DB URL |
-| `CORS_ORIGINS` | `http://localhost:5173` | Allowed CORS origins |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Allowed CORS origins |
 | `ANOMALY_ZSCORE_THRESHOLD` | `2.5` | Z-score anomaly threshold |
 | `DUPLICATE_SIMILARITY_THRESHOLD` | `0.88` | Similarity threshold for dupes |
 
@@ -221,11 +221,11 @@ backend/
       audit_service.py → Audit trail (login, uploads, corrections, retrain, role changes)
       executor.py      → Thread pool for CPU-bound tasks
   scripts/             → RAG evaluation (evaluate_rag.py)
-  tests/               → 23 pytest tests
+  tests/               → 72 pytest tests
   Dockerfile
 frontend/
   src/
-    pages/             → 9 pages (Dashboard, Documents, Chat, etc.)
+    pages/             → 10 pages (Dashboard, Documents, Chat, Admin, etc.)
     components/        → Layout shell
     api.ts             → API client
   vercel.json          → Vercel deploy config

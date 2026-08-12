@@ -11,7 +11,10 @@ const NAV = [
   { to: "/duplicates", label: "Duplicates", icon: "🔗" },
 ];
 
+const ADMIN_NAV = { to: "/admin", label: "Admin", icon: "🛡️" };
+
 export default function Layout({ children, user, onLogout }: { children: React.ReactNode; user: User; onLogout: () => void }) {
+  const nav = user.role === "admin" ? [...NAV, ADMIN_NAV] : NAV;
   return (
     <div className="flex min-h-screen">
       <aside className="w-60 border-r border-border bg-panel p-4 flex flex-col gap-1 shrink-0">
@@ -19,7 +22,7 @@ export default function Layout({ children, user, onLogout }: { children: React.R
           <h1 className="text-sm font-bold tracking-wider text-teal uppercase">SpendIntel</h1>
           <p className="text-xs text-muted mt-1">AI Spend Intelligence</p>
         </div>
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === "/"}
             className={({ isActive }) =>
               `flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${isActive ? "bg-teal/10 text-teal" : "text-muted hover:text-parchment hover:bg-panel-2"}`

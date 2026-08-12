@@ -18,7 +18,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    analytics.dashboard().then(setData).finally(() => setLoading(false));
+    analytics.dashboard().then(setData).catch(() => setData(null)).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <p className="text-muted">Loading dashboard...</p>;

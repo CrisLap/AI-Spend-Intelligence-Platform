@@ -3,11 +3,27 @@ import { duplicates } from "../api";
 
 type DupGroup = { id: number; reason: string; similarity: number; items: { id: number; description: string; supplier: string | null; total: number; invoice_number: string | null }[] };
 
+const PAGE_SIZE = 50;
+
 export default function DuplicatesPage() {
   const [groups, setGroups] = useState<DupGroup[]>([]);
   const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  useEffect(() => { duplicates.list().then(setGroups).catch((err: any) => setError(err.message)); }, []);
+  useEffect(() => {
+    duplicates.list(0, PAGE_SIZE)
+      .then((res: DupGroup[]) => { setGroups(res); setHasMore(res.length === PAGE_SIZE); })
+      .catch((err: any) => setError(err.message));
+  }, []);
+
+  function loadMore() {
+    setLoadingMore(true);
+    duplicates.list(groups.length, PAGE_SIZE)
+      .then((res: DupGroup[]) => { setGroups((prev) => [...prev, ...res]); setHasMore(res.length === PAGE_SIZE); })
+      .catch((err: any) => alert(err.message))
+      .finally(() => setLoadingMore(false));
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -36,6 +52,11 @@ export default function DuplicatesPage() {
           </div>
         ))}
       </div>
+      {hasMore && (
+        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
+          {loadingMore ? "Loading..." : "Load more"}
+        </button>
+      )}
     </div>
   );
 }

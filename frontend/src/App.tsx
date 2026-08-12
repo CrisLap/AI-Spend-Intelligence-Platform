@@ -11,6 +11,7 @@ import SemanticSearch from "./pages/SemanticSearch";
 import ChatPage from "./pages/ChatPage";
 import AnomaliesPage from "./pages/AnomaliesPage";
 import DuplicatesPage from "./pages/DuplicatesPage";
+import AdminUsers from "./pages/AdminUsers";
 
 export type User = { id: number; email: string; full_name: string; role: string };
 
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/anomalies" element={<AnomaliesPage />} />
         <Route path="/duplicates" element={<DuplicatesPage />} />
+        {user.role === "admin" && <Route path="/admin" element={<AdminUsers />} />}
       </Routes>
     </Layout>
   );

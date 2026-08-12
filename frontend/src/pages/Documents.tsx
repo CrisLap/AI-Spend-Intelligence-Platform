@@ -4,15 +4,32 @@ import { documents } from "../api";
 
 type Doc = { id: number; original_name: string; doc_type: string; status: string; created_at: string; };
 
+const PAGE_SIZE = 50;
+
 export default function Documents() {
   const [list, setList] = useState<Doc[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  function load() { setError(""); documents.list().then(setList).catch((err: any) => setError(err.message)); }
+  function load() {
+    setError("");
+    documents.list(0, PAGE_SIZE)
+      .then((res: Doc[]) => { setList(res); setHasMore(res.length === PAGE_SIZE); })
+      .catch((err: any) => setError(err.message));
+  }
   useEffect(load, []);
+
+  function loadMore() {
+    setLoadingMore(true);
+    documents.list(list.length, PAGE_SIZE)
+      .then((res: Doc[]) => { setList((prev) => [...prev, ...res]); setHasMore(res.length === PAGE_SIZE); })
+      .catch((err: any) => alert(err.message))
+      .finally(() => setLoadingMore(false));
+  }
 
   async function handleUpload() {
     const file = fileRef.current?.files?.[0];
@@ -63,6 +80,11 @@ export default function Documents() {
           </tbody>
         </table>
       </div>
+      {hasMore && (
+        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
+          {loadingMore ? "Loading..." : "Load more"}
+        </button>
+      )}
     </div>
   );
 }

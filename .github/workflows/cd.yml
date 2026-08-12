@@ -6,7 +6,6 @@ on:
     paths:
       - "backend/**"
       - "docker-compose.yml"
-      - "Dockerfile"
       - ".github/workflows/cd.yml"
 
 permissions:
