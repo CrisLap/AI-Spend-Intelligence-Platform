@@ -12,7 +12,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGINS
-        value: https://your-frontend.vercel.app
+        value: https://ai-spend-intelligence-platform.vercel.app
       - key: SECRET_KEY
         generateValue: true
       - key: QDRANT_URL
@@ -49,3 +49,10 @@ services:
 # - Gli embeddings (ricerca semantica/RAG) usano lo stesso pattern con Jina AI
 #   (free tier, via JINA_API_KEY), dato che Groq non offre un endpoint
 #   embeddings. Senza questa chiave si degrada a un hash pseudo-embedding.
+# - CORS_ORIGINS usa "value" (non "sync: false"): Render tratta questo file
+#   come sorgente di verita' per le chiavi "value" e le ri-applica ad ogni
+#   deploy che risincronizza il Blueprint, sovrascrivendo silenziosamente
+#   qualunque valore diverso impostato a mano nella dashboard. Va quindi
+#   mantenuto qui aggiornato con il dominio Vercel reale, non lasciato come
+#   placeholder, altrimenti un deploy futuro puo' ripristinare
+#   "your-frontend.vercel.app" e rompere il CORS in produzione.
