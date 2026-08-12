@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+from sqlalchemy.orm import Session
+
+from app.models.document import Document, LineItem
+from app.services.agents.react_engine import Tool
+from app.services.analytics import get_dashboard, get_supplier_variance
+from app.services.anomalies import detect_anomalies
+from app.services.contract_intelligence import search_contracts
+
+_IGNORED_INPUTS = {"", "all", "*", "any", "n/a", "none"}
+
+
+def _spend_overview_tool(user_id: int, db: Session):
+    def _call(_query: str) -> str:
+        data = get_dashboard(user_id=user_id, db=db)
+        suppliers = ", ".join(f"{s['supplier']} (€{s['total']:,.2f})" for s in data["top_suppliers"][:5])
+        categories = ", ".join(
+            f"{c['category']} (€{c['total']:,.2f}, {c['percentage']}%)" for c in data["top_categories"]
+        )
+        return (
+            f"Total spend: €{data['total_spend']:,.2f} across {data['total_items']} line items "
+            f"in {data['total_documents']} documents.\n"
+            f"Anomalies flagged: {data['anomaly_count']}. Duplicate groups: {data['duplicate_count']}.\n"
+            f"Top suppliers by spend: {suppliers or 'none'}.\n"
+            f"Top categories by spend: {categories or 'none'}."
+        )
+
+    return _call
+
+
+def _supplier_variance_tool(user_id: int, db: Session):
+    def _call(query: str) -> str:
+        variances = get_supplier_variance(user_id=user_id, db=db)
+        if not variances:
+            return (
+                "Not enough historical data per supplier to compute spend "
+                "variance (each supplier needs at least 4 line items)."
+            )
+        q = (query or "").strip().lower()
+        if q not in _IGNORED_INPUTS:
+            matched = [v for v in variances if q in v["supplier"].lower()]
+            if matched:
+                variances = matched
+        lines = [
+            f"{v['supplier']}: {v['variance_pct']:+.1f}% "
+            f"(€{v['previous_total']:,.2f} -> €{v['recent_total']:,.2f}), "
+            f"categories: {', '.join(v['categories']) or 'n/a'}"
+            for v in variances[:8]
+        ]
+        return "\n".join(lines)
+
+    return _call
+
+
+def _anomaly_scan_tool(user_id: int, db: Session):
+    def _call(_query: str) -> str:
+        items = db.query(LineItem).join(Document).filter(Document.user_id == user_id).all()
+        if not items:
+            return "No line items found for this user."
+        results = detect_anomalies(items, db=db)
+        flagged = [r for r in results if r["is_anomaly"]]
+        if not flagged:
+            return "No anomalies detected in current spend data."
+        return "\n".join(
+            f"{r['description']} (category: {r['category'] or 'n/a'}, z-score {r['zscore']:.2f}): {r['reason']}"
+            for r in flagged[:10]
+        )
+
+    return _call
+
+
+def _contract_search_tool(user_id: int, db: Session):
+    def _call(query: str) -> list[dict]:
+        return search_contracts(query, top_k=5, user_id=user_id, db=db)
+
+    return _call
+
+
+def build_tools(user_id: int, db: Session) -> list[Tool]:
+    """The Cost Saving Agent's tool registry - each tool wraps an existing,
+    already-tested service function so every number the agent reasons over
+    is a real query result, not a fabricated figure."""
+    return [
+        Tool(
+            name="spend_overview",
+            description=(
+                "get an overview of total spend, top suppliers and top spend "
+                'categories. Input is ignored - pass "overview".'
+            ),
+            fn=_spend_overview_tool(user_id, db),
+        ),
+        Tool(
+            name="supplier_variance",
+            description=(
+                "get period-over-period spend variance per supplier (which "
+                "suppliers' spend increased or decreased, and by how much). "
+                'Input: a supplier name to filter, or "all".'
+            ),
+            fn=_supplier_variance_tool(user_id, db),
+        ),
+        Tool(
+            name="anomaly_scan",
+            description=(
+                "scan spend line items for price, quantity and new-supplier "
+                'anomalies. Input is ignored - pass "scan".'
+            ),
+            fn=_anomaly_scan_tool(user_id, db),
+        ),
+        Tool(
+            name="contract_search",
+            description=(
+                "semantic search over indexed contract text - e.g. auto-renewal "
+                "clauses, expiration dates, penalty terms. Input: a search query."
+            ),
+            fn=_contract_search_tool(user_id, db),
+        ),
+    ]

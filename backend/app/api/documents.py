@@ -6,7 +6,15 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.document import DocType, Document, DocumentStatus, LineItem, LineItemGroup, LineItemGroupItem
+from app.models.document import (
+    ContractClause,
+    DocType,
+    Document,
+    DocumentStatus,
+    LineItem,
+    LineItemGroup,
+    LineItemGroupItem,
+)
 from app.models.feedback import Feedback
 from app.models.user import User
 from app.schemas.document import DocumentOut, DocumentWithItems, LineItemOut
@@ -14,9 +22,10 @@ from app.services.ai import embed_text
 from app.services.anomalies import detect_anomalies
 from app.services.audit_service import log_action
 from app.services.classifier import classify_batch
+from app.services.contract_intelligence import index_contract
 from app.services.document_intelligence import extract_metadata, extract_raw_text, parse_items, save_upload
 from app.services.duplicates import find_duplicates
-from app.services.vector_store import delete_line_items, upsert_line_item
+from app.services.vector_store import delete_contract_chunks, delete_line_items, upsert_line_item
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -51,7 +60,16 @@ def _clear_document_children(db: Session, document_id: int) -> list[int]:
     if group_ids:
         db.query(LineItemGroup).filter(LineItemGroup.id.in_(group_ids)).delete(synchronize_session=False)
     db.query(LineItem).filter(LineItem.document_id == document_id).delete(synchronize_session=False)
-    db.commit()
+
+    clause_ids = [
+        c.id for c in db.query(ContractClause.id).filter(ContractClause.document_id == document_id).all()
+    ]
+    if clause_ids:
+        db.query(ContractClause).filter(ContractClause.document_id == document_id).delete(synchronize_session=False)
+        db.commit()
+        delete_contract_chunks(clause_ids)
+    else:
+        db.commit()
     return item_ids
 
 ALLOWED_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".xls", ".png", ".jpg", ".jpeg", ".tiff", ".bmp"}
@@ -127,6 +145,9 @@ def process_document(
         old_item_ids = _clear_document_children(db, doc.id)
         if old_item_ids:
             delete_line_items(old_item_ids)
+
+        if doc.doc_type == DocType.contract:
+            index_contract(doc, db)
 
         metadata = extract_metadata(raw_text)
         parsed = parse_items(raw_text, doc.doc_type.value if doc.doc_type else None)

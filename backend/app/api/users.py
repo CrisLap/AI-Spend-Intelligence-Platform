@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_role
+from app.models.agent_run import AgentRun
 from app.models.audit import AuditLog
 from app.models.chat import ChatMessage, ChatSession
-from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
+from app.models.document import ContractClause, Document, LineItem, LineItemGroup, LineItemGroupItem
 from app.models.feedback import Feedback
 from app.models.user import User
 from app.schemas.user import RoleUpdate, UserOut
@@ -120,7 +121,9 @@ def delete_user(
     db.query(LineItemGroupItem).filter(LineItemGroupItem.line_item_id.in_(item_ids)).delete(synchronize_session=False)
     db.query(LineItemGroup).filter(LineItemGroup.id.in_(group_ids)).delete(synchronize_session=False)
     db.query(LineItem).filter(LineItem.document_id.in_(doc_ids)).delete(synchronize_session=False)
+    db.query(ContractClause).filter(ContractClause.document_id.in_(doc_ids)).delete(synchronize_session=False)
     db.query(Document).filter(Document.id.in_(doc_ids)).delete(synchronize_session=False)
+    db.query(AgentRun).filter(AgentRun.user_id == user_id).delete(synchronize_session=False)
     db.query(AuditLog).filter(AuditLog.user_id == user_id).delete(synchronize_session=False)
     db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
     db.commit()

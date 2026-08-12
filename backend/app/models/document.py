@@ -76,3 +76,19 @@ class LineItemGroupItem(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(ForeignKey("line_item_groups.id"), nullable=False)
     line_item_id = Column(ForeignKey("line_items.id"), nullable=False)
+
+
+class ContractClause(Base):
+    """A chunk of a contract document's full text, indexed separately from
+    LineItem so contract-level semantic search (renewal clauses, penalties,
+    exclusivity terms) isn't limited to the line-item granularity the rest
+    of the RAG pipeline uses."""
+
+    __tablename__ = "contract_clauses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    document_id = Column(ForeignKey("documents.id"), nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    embedding_cache = Column(Text, nullable=True)  # JSON-encoded float list, lazily populated by search
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

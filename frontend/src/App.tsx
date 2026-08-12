@@ -9,6 +9,7 @@ import DocumentView from "./pages/DocumentView";
 import Classification from "./pages/Classification";
 import SemanticSearch from "./pages/SemanticSearch";
 import ChatPage from "./pages/ChatPage";
+import CostSavingAgentPage from "./pages/CostSavingAgentPage";
 import AnomaliesPage from "./pages/AnomaliesPage";
 import DuplicatesPage from "./pages/DuplicatesPage";
 import AdminUsers from "./pages/AdminUsers";
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/classification" element={<Classification />} />
         <Route path="/search" element={<SemanticSearch />} />
         <Route path="/chat" element={<ChatPage />} />
+        <Route path="/cost-saving" element={<CostSavingAgentPage />} />
         <Route path="/anomalies" element={<AnomaliesPage />} />
         <Route path="/duplicates" element={<DuplicatesPage />} />
         {user.role === "admin" && <Route path="/admin" element={<AdminUsers />} />}

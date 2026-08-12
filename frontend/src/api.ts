@@ -92,6 +92,13 @@ export const duplicates = {
   list: (skip = 0, limit = 50) => request(`/duplicates?skip=${skip}&limit=${limit}`),
 };
 
+export const costSaving = {
+  analyze: (goal: string) =>
+    request("/cost-saving/analyze", { method: "POST", body: JSON.stringify({ goal }) }),
+  history: (skip = 0, limit = 20) => request(`/cost-saving/history?skip=${skip}&limit=${limit}`),
+  historyRun: (id: number) => request(`/cost-saving/history/${id}`),
+};
+
 export const feedback = {
   create: (data: { document_id: number; line_item_id?: number; original_category?: string; corrected_category: string; comment?: string }) =>
     request("/feedback", { method: "POST", body: JSON.stringify(data) }),

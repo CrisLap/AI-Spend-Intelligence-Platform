@@ -5,7 +5,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
-from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
+from app.models.document import DocType, Document, LineItem, LineItemGroup, LineItemGroupItem
 
 
 def get_dashboard(user_id: int | None = None, db: Session | None = None) -> dict:
@@ -80,6 +80,74 @@ def get_dashboard(user_id: int | None = None, db: Session | None = None) -> dict
             "top_suppliers": top_suppliers,
             "top_categories": top_cats,
         }
+    finally:
+        if close_db:
+            db.close()
+
+
+def get_supplier_variance(
+    user_id: int | None = None, db: Session | None = None, min_items: int = 4
+) -> list[dict]:
+    """Period-over-period spend variance per supplier: each supplier's line
+    items (ordered by created_at) are split in half - the older half is the
+    "previous period", the newer half the "recent period" - and the percent
+    change in total spend between the two is computed. This works on any
+    date range actually present in the data (no fixed calendar year is
+    assumed), which matters because demo/real data is rarely a full year
+    deep. Suppliers with fewer than min_items line items are skipped: a
+    split of 1-2 items isn't a meaningful trend, it's noise.
+
+    Contract documents are excluded: a contract's line item typically
+    represents its total face value (a single lump sum), not a recurring
+    charge, so mixing it into a period-over-period comparison of actual
+    transactional spend would skew the trend rather than reflect it.
+    """
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+    try:
+        q = (
+            db.query(LineItem)
+            .join(Document)
+            .filter(
+                LineItem.supplier.isnot(None),
+                LineItem.supplier != "",
+                Document.doc_type != DocType.contract,
+            )
+        )
+        if user_id is not None:
+            q = q.filter(Document.user_id == user_id)
+        items = q.all()
+
+        by_supplier: dict[str, list[LineItem]] = defaultdict(list)
+        for i in items:
+            by_supplier[i.supplier].append(i)
+
+        results = []
+        for supplier, supplier_items in by_supplier.items():
+            if len(supplier_items) < min_items:
+                continue
+            ordered = sorted(supplier_items, key=lambda i: i.created_at or i.id)
+            mid = len(ordered) // 2
+            previous, recent = ordered[:mid], ordered[mid:]
+            previous_total = round(sum(i.total or 0 for i in previous), 2)
+            recent_total = round(sum(i.total or 0 for i in recent), 2)
+            if previous_total <= 0:
+                continue
+            variance_pct = round((recent_total - previous_total) / previous_total * 100, 1)
+            results.append({
+                "supplier": supplier,
+                "previous_total": previous_total,
+                "recent_total": recent_total,
+                "variance_pct": variance_pct,
+                "previous_count": len(previous),
+                "recent_count": len(recent),
+                "categories": sorted({i.category_label for i in supplier_items if i.category_label}),
+            })
+
+        results.sort(key=lambda r: abs(r["variance_pct"]), reverse=True)
+        return results
     finally:
         if close_db:
             db.close()

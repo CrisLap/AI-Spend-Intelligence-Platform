@@ -11,6 +11,7 @@ from app.api import (
     auth,
     chat,
     classification,
+    cost_saving,
     documents,
     duplicates,
     feedback,
@@ -69,3 +70,4 @@ app.include_router(anomalies.router)
 app.include_router(duplicates.router)
 app.include_router(analytics.router)
 app.include_router(feedback.router)
+app.include_router(cost_saving.router)

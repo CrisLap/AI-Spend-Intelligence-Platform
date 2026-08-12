@@ -7,6 +7,7 @@ const NAV = [
   { to: "/classification", label: "Classification", icon: "🏷️" },
   { to: "/search", label: "Search", icon: "🔍" },
   { to: "/chat", label: "Chat", icon: "💬" },
+  { to: "/cost-saving", label: "Cost Saving Agent", icon: "🤖" },
   { to: "/anomalies", label: "Anomalies", icon: "⚠️" },
   { to: "/duplicates", label: "Duplicates", icon: "🔗" },
 ];

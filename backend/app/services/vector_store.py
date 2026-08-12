@@ -14,7 +14,7 @@ from app.services.ai import EMBEDDING_DIM
 logger = logging.getLogger(__name__)
 
 _client: QdrantClient | None = None
-_collection_ready_at: float | None = None
+_collection_ready_at: dict[str, float] = {}
 _COLLECTION_READY_TTL_SECONDS = 60
 _init_lock = threading.RLock()
 
@@ -32,46 +32,51 @@ def get_client() -> QdrantClient:
     return _client
 
 
-def ensure_collection() -> bool:
-    """Create the collection if it doesn't exist yet.
+def _ensure(collection_name: str) -> bool:
+    """Create the given collection if it doesn't exist yet.
 
     Returns False (instead of raising) if Qdrant is unreachable, so callers
     can fall back to another retrieval strategy (offline/dev environments
     without Qdrant running).
 
-    The "ready" result is cached briefly (not forever) - a permanent cache
-    would mean that once Qdrant is confirmed reachable, a later outage (e.g.
-    the collection disappearing after a restart with ephemeral storage)
-    would go undetected until the process itself restarts, with every
-    upsert/search/delete silently failing against a stale assumption in the
-    meantime.
+    The "ready" result is cached briefly per collection (not forever) - a
+    permanent cache would mean that once Qdrant is confirmed reachable, a
+    later outage (e.g. the collection disappearing after a restart with
+    ephemeral storage) would go undetected until the process itself
+    restarts, with every upsert/search/delete silently failing against a
+    stale assumption in the meantime.
     """
-    global _collection_ready_at
     now = time.monotonic()
-    if _collection_ready_at is not None and now - _collection_ready_at < _COLLECTION_READY_TTL_SECONDS:
+    ready_at = _collection_ready_at.get(collection_name)
+    if ready_at is not None and now - ready_at < _COLLECTION_READY_TTL_SECONDS:
         return True
     with _init_lock:
         # Re-check after acquiring the lock: another thread may have just
         # refreshed this while we were waiting.
         now = time.monotonic()
-        if _collection_ready_at is not None and now - _collection_ready_at < _COLLECTION_READY_TTL_SECONDS:
+        ready_at = _collection_ready_at.get(collection_name)
+        if ready_at is not None and now - ready_at < _COLLECTION_READY_TTL_SECONDS:
             return True
         try:
             client = get_client()
             existing = {c.name for c in client.get_collections().collections}
-            if settings.qdrant_collection not in existing:
+            if collection_name not in existing:
                 client.create_collection(
-                    collection_name=settings.qdrant_collection,
+                    collection_name=collection_name,
                     vectors_config=qmodels.VectorParams(
                         size=EMBEDDING_DIM, distance=qmodels.Distance.COSINE
                     ),
                 )
-            _collection_ready_at = time.monotonic()
+            _collection_ready_at[collection_name] = time.monotonic()
             return True
         except Exception:
             logger.warning("Qdrant unavailable at %s, falling back to in-memory search", settings.qdrant_url)
-            _collection_ready_at = None
+            _collection_ready_at.pop(collection_name, None)
             return False
+
+
+def ensure_collection() -> bool:
+    return _ensure(settings.qdrant_collection)
 
 
 def upsert_line_item(line_item_id: int, vector: np.ndarray, payload: dict) -> bool:
@@ -125,4 +130,59 @@ def search(vector: np.ndarray, top_k: int = 10, user_id: int | None = None) -> l
         return [{"line_item_id": h.id, "score": round(h.score, 4), **(h.payload or {})} for h in hits]
     except Exception:
         logger.exception("Qdrant search failed, falling back to in-memory search")
+        return None
+
+
+def upsert_contract_chunk(chunk_id: int, vector: np.ndarray, payload: dict) -> bool:
+    """Same as upsert_line_item but against the separate contract-chunk
+    collection, so contract-clause point ids (their own DB primary key)
+    never collide with line-item point ids in the main collection."""
+    if not _ensure(settings.qdrant_contract_collection):
+        return False
+    try:
+        get_client().upsert(
+            collection_name=settings.qdrant_contract_collection,
+            points=[
+                qmodels.PointStruct(id=chunk_id, vector=vector.tolist(), payload=payload)
+            ],
+        )
+        return True
+    except Exception:
+        logger.exception("Failed to upsert contract chunk %s into Qdrant", chunk_id)
+        return False
+
+
+def delete_contract_chunks(chunk_ids: list[int]) -> None:
+    if not chunk_ids or not _ensure(settings.qdrant_contract_collection):
+        return
+    try:
+        get_client().delete(
+            collection_name=settings.qdrant_contract_collection,
+            points_selector=qmodels.PointIdsList(points=chunk_ids),
+        )
+    except Exception:
+        logger.exception("Failed to delete contract chunks %s from Qdrant", chunk_ids)
+
+
+def search_contracts(vector: np.ndarray, top_k: int = 5, user_id: int | None = None) -> list[dict] | None:
+    """Vector search against the contract-chunk collection. Returns None
+    (not an empty list) when Qdrant is unreachable, matching search()'s
+    contract so callers can tell "unreachable" from "no results"."""
+    if not _ensure(settings.qdrant_contract_collection):
+        return None
+    try:
+        query_filter = None
+        if user_id is not None:
+            query_filter = qmodels.Filter(
+                must=[qmodels.FieldCondition(key="user_id", match=qmodels.MatchValue(value=user_id))]
+            )
+        hits = get_client().search(
+            collection_name=settings.qdrant_contract_collection,
+            query_vector=vector.tolist(),
+            query_filter=query_filter,
+            limit=top_k,
+        )
+        return [{"chunk_id": h.id, "score": round(h.score, 4), **(h.payload or {})} for h in hits]
+    except Exception:
+        logger.exception("Qdrant contract search failed, falling back to in-memory search")
         return None

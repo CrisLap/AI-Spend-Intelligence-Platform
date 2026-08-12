@@ -2,13 +2,50 @@
 
 [![CI](https://github.com/YOUR_USER/ai-spend-intelligence-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USER/ai-spend-intelligence-platform/actions/workflows/ci.yml)
 
-A fully modular AI-powered platform for intelligent corporate spend management. Supports the entire lifecycle: document ingestion, UNSPSC classification, semantic search, RAG chat, anomaly and duplicate detection, analytics dashboard, and feedback-driven improvement loops.
+An enterprise AI platform that combines Retrieval-Augmented Generation and autonomous AI agents to analyze company spend, identify inefficiencies, and recommend cost-saving opportunities. Supports the entire lifecycle: document ingestion, UNSPSC classification, semantic search, RAG chat, a goal-driven multi-tool Cost Saving Agent, anomaly and duplicate detection, analytics dashboard, and feedback-driven improvement loops.
 
 ## Architecture
 
 ```
+                                   User
+                                    |
+                       +------------+------------+
+                       |                          |
+                       v                          v
+              Chat (RAG assistant)        Cost Saving Agent
+              chat_react.py               cost_saving_agent.py
+                       |                          |
+                       v                          v
+              react_engine.py  <-- generic multi-tool ReAct loop -->
+                       |                          |
+                       |                 Tool registry (agents/tools.py)
+                       |                 +-- spend_overview     (analytics.py)
+                       |                 +-- supplier_variance  (analytics.py)
+                       |                 +-- anomaly_scan       (anomalies.py)
+                       |                 +-- contract_search    (contract_intelligence.py)
+                       v                          v
+              Qdrant: spend_documents    Qdrant: spend_contracts
+                                                   |
+                                                   v
+                                        Recommendation Engine
+                                        (transparent heuristics
+                                         over real DB data)
+                                                   |
+                                                   v
+                                        AgentRun (persisted + audited)
+
 Frontend (React) → FastAPI Backend → PostgreSQL (relational) + Qdrant (vector store) + Ollama (AI)
 ```
+
+The Cost Saving Agent's recommendations are deliberately decoupled from its
+ReAct trace: the trace is what the LLM actually reasoned through and is
+shown to the user as-is, while the recommendations are computed directly by
+a deterministic engine over the same underlying data functions - so every
+number shown is grounded in a real, reproducible query, never invented by
+the model. See `backend/app/services/cost_saving_agent.py` for the exact
+heuristics (e.g. the supplier-variance threshold and the assumed
+renegotiation recovery rate) and why they're named constants, not magic
+numbers.
 
 ## Stack
 
@@ -32,6 +69,8 @@ Frontend (React) → FastAPI Backend → PostgreSQL (relational) + Qdrant (vecto
 | 8 | Feedback Loop | User corrections stored → real-time classifier retraining via `POST /classification/retrain` |
 | 9 | REST API | Complete OpenAPI-documented endpoints for every module |
 | 10 | User Management | JWT auth, RBAC (Admin/Buyer/Finance), audit logging |
+| 11 | Cost Saving Agent | Goal-driven multi-tool agent (spend overview, supplier variance, anomaly scan, contract clause search) built on a generic, reusable ReAct engine; a deterministic Recommendation Engine turns real query results into cited, estimated-saving opportunities; every run is persisted with a full audit trail |
+| 12 | Contract Intelligence | Contract full text is chunked and semantically indexed (separate Qdrant collection) so clauses - auto-renewal, penalties - are searchable, not just line items |
 
 ## Quick Start
 
@@ -72,9 +111,11 @@ This starts: API (`:8000`), PostgreSQL, Qdrant (`:6333`), Ollama (`:11434`). It 
 ### Demo Data
 
 The app starts empty. To populate it with realistic sample data (3 users
-with different roles, 9 invoices/orders across 6 months, and one deliberate
+with different roles, invoices/orders across 6 months, one deliberate
 example of each detection type - a duplicate line, a price anomaly, a
-quantity anomaly, and a new-supplier anomaly):
+quantity anomaly, and a new-supplier anomaly - plus two suppliers with a
+verified spend increase and two contracts with an indexed auto-renewal
+clause, so the Cost Saving Agent has real opportunities to find):
 
 ```bash
 cd backend
@@ -160,6 +201,9 @@ in `.env.example`.
 | GET | `/chat/sessions` | List chat sessions |
 | GET | `/chat/sessions/{id}/messages` | Get chat history |
 | DELETE | `/chat/sessions/{id}` | Delete a session |
+| POST | `/cost-saving/analyze` | Run the Cost Saving Agent for a goal, get back a ReAct trace + cited recommendations |
+| GET | `/cost-saving/history` | List past agent runs for the current user |
+| GET | `/cost-saving/history/{id}` | Get a single past agent run |
 
 ## Environment Variables
 
@@ -173,6 +217,7 @@ in `.env.example`.
 | `OLLAMA_CHAT_MODEL` | `llama3.2` | Model for chat completions |
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Model for embeddings |
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant vector DB URL |
+| `QDRANT_CONTRACT_COLLECTION` | `spend_contracts` | Separate Qdrant collection for contract-clause chunks (contract point ids reuse the DB's own ids, so this must not collide with `QDRANT_COLLECTION`) |
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Allowed CORS origins |
 | `ANOMALY_ZSCORE_THRESHOLD` | `2.5` | Z-score anomaly threshold |
 | `DUPLICATE_SIMILARITY_THRESHOLD` | `0.88` | Similarity threshold for dupes |
@@ -211,25 +256,42 @@ backend/
     models/            → SQLAlchemy ORM models
     schemas/           → Pydantic v2 request/response schemas
     services/          → Business logic
-      ai.py            → Ollama chat & embeddings (fixed-dim, hash fallback offline)
-      chat_react.py    → ReAct loop (Thought/Action/Observation) with a real search_spend tool
-      chat_service.py  → RAG pipeline with memory trimming
-      classifier.py    → 3-tier classification (rule → embedding → LLM)
-      vector_store.py  → Qdrant integration (semantic search + RAG retrieval)
-      anomalies.py     → Price, quantity, supplier anomaly detection
-      guardrails.py    → Input validation & output sanitization
-      audit_service.py → Audit trail (login, uploads, corrections, retrain, role changes)
-      executor.py      → Thread pool for CPU-bound tasks
-  scripts/             → RAG evaluation (evaluate_rag.py)
-  tests/               → 72 pytest tests
+      ai.py                  → Ollama chat & embeddings (fixed-dim, hash fallback offline)
+      chat_react.py          → thin wrapper: single-tool ReAct chat on top of agents/react_engine.py
+      chat_service.py        → RAG pipeline with memory trimming
+      classifier.py          → 3-tier classification (rule → embedding → LLM)
+      vector_store.py        → Qdrant integration (line-item + contract-chunk collections)
+      contract_intelligence.py → contract text chunking, embedding, semantic clause search
+      cost_saving_agent.py   → Cost Saving Agent: runs the ReAct loop + the Recommendation Engine
+      agents/
+        react_engine.py      → generic multi-tool ReAct loop (Thought/Action/Observation)
+        tools.py              → Cost Saving Agent's tool registry, wrapping existing services
+      anomalies.py           → Price, quantity, supplier anomaly detection
+      guardrails.py          → Input validation & output sanitization
+      audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
+      executor.py            → Thread pool for CPU-bound tasks
+  scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
+  tests/               → 100 pytest tests
   Dockerfile
 frontend/
   src/
-    pages/             → 10 pages (Dashboard, Documents, Chat, Admin, etc.)
-    components/        → Layout shell
+    pages/             → 11 pages (Dashboard, Documents, Chat, Cost Saving Agent, Admin, etc.)
+    components/        → Layout shell, AgentStepTimeline, RecommendationCard
     api.ts             → API client
   vercel.json          → Vercel deploy config
 ```
+
+## Roadmap
+
+Fase 2 (not yet implemented, but designed - see the project's internal
+planning notes): live SSE streaming of agent steps instead of the current
+staged client-side reveal of an already-complete response; native JSON
+function-calling via Groq's `tools=` param as an alternative to the
+text-parsed ReAct format for providers that support it; a single "AI
+Assistant" entry point that routes between the Chat RAG and the Cost Saving
+Agent by intent instead of two separate pages; additional specialized
+agents (forecasting, contract-risk) built on the same `react_engine.py` +
+tool-registry pattern; a frontend test suite (Vitest).
 
 ## License
 

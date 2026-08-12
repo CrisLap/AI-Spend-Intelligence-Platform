@@ -9,7 +9,7 @@ from app.services import vector_store
 
 def _reset_module_state():
     vector_store._client = None
-    vector_store._collection_ready_at = None
+    vector_store._collection_ready_at = {}
 
 
 def test_search_returns_none_when_qdrant_unreachable():
