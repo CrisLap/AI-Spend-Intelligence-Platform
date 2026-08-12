@@ -1,0 +1,5 @@
+{
+  "streamFailed": "Stream request failed ({{status}})",
+  "streamingNotSupported": "Streaming is not supported by this browser/response",
+  "generic": "Something went wrong. Please try again."
+}

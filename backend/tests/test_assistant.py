@@ -99,3 +99,43 @@ def test_assistant_endpoint_routes_a_forecast_goal_with_the_forecast_agent_type(
 
     assert r.status_code == 200
     assert r.json()["suggestion"]["agent_type"] == "forecast"
+
+
+# --- API: GET /assistant/stream (SSE equivalent) --------------------------
+
+
+def test_assistant_stream_endpoint_streams_a_terminal_done_event_for_a_chat_message(
+    client: TestClient, auth_headers: dict, monkeypatch
+):
+    monkeypatch.setattr(chat_service, "SessionLocal", TestSessionLocal)
+    monkeypatch.setattr(chat_service, "qdrant_search", lambda *a, **kw: [])
+    monkeypatch.setattr("app.services.ai.chat", lambda messages: "Final Answer: Abbiamo speso 1000 euro.")
+
+    with client.stream(
+        "GET", "/assistant/stream", params={"message": "Quanto abbiamo speso in totale?"}, headers=auth_headers
+    ) as r:
+        assert r.status_code == 200
+        assert "text/event-stream" in r.headers["content-type"]
+        body = "".join(r.iter_text())
+
+    assert "event: done" in body
+    assert body.rstrip().endswith("}")
+
+
+def test_assistant_stream_endpoint_streams_a_suggestion_event_for_a_saving_goal(
+    client: TestClient, auth_headers: dict
+):
+    with client.stream(
+        "GET", "/assistant/stream", params={"message": "Trova opportunità di risparmio sui fornitori"},
+        headers=auth_headers,
+    ) as r:
+        assert r.status_code == 200
+        body = "".join(r.iter_text())
+
+    assert "event: suggestion" in body
+    assert "cost_saving" in body
+
+
+def test_assistant_stream_requires_authentication(client: TestClient):
+    r = client.get("/assistant/stream", params={"message": "x"})
+    assert r.status_code == 401

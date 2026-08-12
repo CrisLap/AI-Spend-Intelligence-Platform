@@ -19,6 +19,12 @@ class AgentStepOut(BaseModel):
     mode: str | None = None
 
 
+class ForecastChartData(BaseModel):
+    months: list[str]
+    monthly_totals: list[float]
+    forecast_next_month: float
+
+
 class RecommendationOut(BaseModel):
     title: str
     reason: str
@@ -28,6 +34,7 @@ class RecommendationOut(BaseModel):
     currency: str = "EUR"
     confidence: str
     evidence: list[str] = []
+    chart: ForecastChartData | None = None
 
 
 class AgentRunOut(BaseModel):

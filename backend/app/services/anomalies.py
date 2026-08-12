@@ -7,9 +7,39 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.document import LineItem
+from app.services.i18n_strings import translate as _t
+
+# These reasons are computed once, when a document is processed
+# (app/api/documents.py::process_document), and stored on LineItem -
+# unlike cost_saving_agent.py's recommendations they aren't re-rendered per
+# viewer, so the language in effect is whatever the uploader had selected
+# at processing time, not necessarily whoever is currently browsing the
+# Anomalies page.
+_STRINGS = {
+    "en": {
+        "price_deviation": "Price {price:.2f} deviates {z:.2f}σ from mean {mean:.2f} of category '{category}'",
+        "quantity_deviation": "Quantity {qty:.1f} deviates {z:.2f}σ from mean {mean:.1f} of category '{category}'",
+        "within_normal_range": "within normal range",
+        "no_items_to_check": "no items to check",
+        "no_supplier_to_check": "no supplier to check",
+        "new_supplier": "New supplier '{supplier}' not found in historical data for category '{category}'",
+        "known_supplier": "known supplier",
+        "unknown_category": "unknown",
+    },
+    "it": {
+        "price_deviation": "Il prezzo {price:.2f} devia di {z:.2f}σ dalla media {mean:.2f} della categoria '{category}'",
+        "quantity_deviation": "La quantità {qty:.1f} devia di {z:.2f}σ dalla media {mean:.1f} della categoria '{category}'",
+        "within_normal_range": "nella norma",
+        "no_items_to_check": "nessuna voce da verificare",
+        "no_supplier_to_check": "nessun fornitore da verificare",
+        "new_supplier": "Nuovo fornitore '{supplier}' non presente nello storico per la categoria '{category}'",
+        "known_supplier": "fornitore noto",
+        "unknown_category": "sconosciuta",
+    },
+}
 
 
-def _zscore_prices(items: list[LineItem], threshold: float) -> list[dict]:
+def _zscore_prices(items: list[LineItem], threshold: float, lang: str) -> list[dict]:
     by_cat: dict[str, list[float]] = defaultdict(list)
     for item in items:
         cat = item.category_label or "_all_"
@@ -40,14 +70,14 @@ def _zscore_prices(items: list[LineItem], threshold: float) -> list[dict]:
             "is_anomaly": is_anom,
             "score": round(z, 2),
             "reason": (
-                f"Price {item.unit_price:.2f} deviates {z:.2f}σ from mean {mean:.2f} of category '{cat}'"
-                if is_anom else "within normal range"
+                _t(_STRINGS, lang, "price_deviation", price=item.unit_price, z=z, mean=mean, category=cat)
+                if is_anom else _t(_STRINGS, lang, "within_normal_range")
             ),
         })
     return results
 
 
-def _zscore_quantities(items: list[LineItem], threshold: float) -> list[dict]:
+def _zscore_quantities(items: list[LineItem], threshold: float, lang: str) -> list[dict]:
     by_cat: dict[str, list[float]] = defaultdict(list)
     for item in items:
         cat = item.category_label or "_all_"
@@ -78,17 +108,17 @@ def _zscore_quantities(items: list[LineItem], threshold: float) -> list[dict]:
             "is_anomaly": is_anom,
             "score": round(z, 2),
             "reason": (
-                f"Quantity {item.quantity:.1f} deviates {z:.2f}σ from mean {mean:.1f} of category '{cat}'"
-                if is_anom else "within normal range"
+                _t(_STRINGS, lang, "quantity_deviation", qty=item.quantity, z=z, mean=mean, category=cat)
+                if is_anom else _t(_STRINGS, lang, "within_normal_range")
             ),
         })
     return results
 
 
-def _new_supplier(items: list[LineItem], db: Session, threshold_days: int = 90) -> list[dict]:
+def _new_supplier(items: list[LineItem], db: Session, lang: str, threshold_days: int = 90) -> list[dict]:
     item_ids = [i.id for i in items if i.id]
     if not item_ids:
-        return [{"type": "new_supplier", "is_anomaly": False, "reason": "no items to check"} for i in items]
+        return [{"type": "new_supplier", "is_anomaly": False, "reason": _t(_STRINGS, lang, "no_items_to_check")} for i in items]
 
     historical = db.query(LineItem.supplier, LineItem.category_label).filter(
         LineItem.id.notin_(item_ids),
@@ -108,7 +138,7 @@ def _new_supplier(items: list[LineItem], db: Session, threshold_days: int = 90) 
                 "category": item.category_label,
                 "is_anomaly": False,
                 "score": 0.0,
-                "reason": "no supplier to check",
+                "reason": _t(_STRINGS, lang, "no_supplier_to_check"),
             })
         elif item.supplier.lower() not in known_suppliers:
             results.append({
@@ -119,7 +149,10 @@ def _new_supplier(items: list[LineItem], db: Session, threshold_days: int = 90) 
                 "category": item.category_label,
                 "is_anomaly": True,
                 "score": 1.0,
-                "reason": f"New supplier '{item.supplier}' not found in historical data for category '{item.category_label or 'unknown'}'",
+                "reason": _t(
+                    _STRINGS, lang, "new_supplier",
+                    supplier=item.supplier, category=item.category_label or _t(_STRINGS, lang, "unknown_category"),
+                ),
             })
         else:
             results.append({
@@ -130,16 +163,16 @@ def _new_supplier(items: list[LineItem], db: Session, threshold_days: int = 90) 
                 "category": item.category_label,
                 "is_anomaly": False,
                 "score": 0.0,
-                "reason": "known supplier",
+                "reason": _t(_STRINGS, lang, "known_supplier"),
             })
     return results
 
 
-def detect_anomalies(items: list[LineItem], db: Session | None = None) -> list[dict]:
+def detect_anomalies(items: list[LineItem], db: Session | None = None, lang: str = "en") -> list[dict]:
     threshold = settings.anomaly_zscore_threshold
 
-    price_results = _zscore_prices(items, threshold)
-    qty_results = _zscore_quantities(items, threshold)
+    price_results = _zscore_prices(items, threshold, lang)
+    qty_results = _zscore_quantities(items, threshold, lang)
 
     merged: dict[int, dict] = {}
     for r in price_results + qty_results:
@@ -169,7 +202,7 @@ def detect_anomalies(items: list[LineItem], db: Session | None = None) -> list[d
     results = list(merged.values())
 
     if db is not None:
-        supplier_results = _new_supplier(items, db)
+        supplier_results = _new_supplier(items, db, lang)
         for sr in supplier_results:
             lid = sr["line_item_id"]
             if lid is None:
@@ -191,6 +224,6 @@ def detect_anomalies(items: list[LineItem], db: Session | None = None) -> list[d
                 })
 
     for r in results:
-        r["reason"] = "; ".join(r["anomalies"]) if r["anomalies"] else "within normal range"
+        r["reason"] = "; ".join(r["anomalies"]) if r["anomalies"] else _t(_STRINGS, lang, "within_normal_range")
 
     return results

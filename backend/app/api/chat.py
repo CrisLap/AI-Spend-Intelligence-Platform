@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_ui_language
 from app.models.chat import ChatMessage, ChatSession
 from app.models.user import User
 from app.schemas.chat import ChatMessageOut, ChatRequest, ChatResponse, ChatSessionOut
@@ -14,8 +14,8 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse)
-def chat(payload: ChatRequest, user: User = Depends(get_current_user)):
-    return answer_question(payload.message, payload.session_id, user.id)
+def chat(payload: ChatRequest, user: User = Depends(get_current_user), lang: str = Depends(get_ui_language)):
+    return answer_question(payload.message, payload.session_id, user.id, lang=lang)
 
 
 @router.get("/sessions", response_model=list[ChatSessionOut])

@@ -1,0 +1,22 @@
+{
+  "title": "Admin",
+  "retraining": "Retraining...",
+  "retrainButton": "Retrain classifier from feedback",
+  "table": {
+    "email": "Email",
+    "name": "Name",
+    "role": "Role",
+    "created": "Created"
+  },
+  "hideLog": "Hide log",
+  "auditLog": "Audit log",
+  "delete": "Delete",
+  "loadingAuditLog": "Loading audit log...",
+  "noAuditEntries": "No audit entries for this user.",
+  "empty": "No users",
+  "deleteDialog": {
+    "title": "Delete user",
+    "message": "Delete user {{email}}? This also deletes their documents and data.",
+    "confirm": "Delete"
+  }
+}

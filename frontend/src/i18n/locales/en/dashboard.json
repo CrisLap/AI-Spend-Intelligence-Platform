@@ -1,0 +1,16 @@
+{
+  "title": "Dashboard",
+  "loadingDashboard": "Loading dashboard...",
+  "loadingError": "Loading error",
+  "kpi": {
+    "totalSpend": "Total Spend",
+    "items": "Items",
+    "documents": "Documents",
+    "anomalies": "Anomalies",
+    "duplicates": "Duplicates"
+  },
+  "spendByCategory": "Spend by Category",
+  "monthlySpend": "Monthly Spend",
+  "topSuppliers": "Top Suppliers",
+  "topCategories": "Top Categories"
+}

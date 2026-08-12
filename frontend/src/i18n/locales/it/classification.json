@@ -1,0 +1,14 @@
+{
+  "title": "Classificazione della spesa",
+  "description": "Inserisci una o più descrizioni (una per riga) per classificarle automaticamente.",
+  "placeholder": "Toner HP LaserJet\nConsulenza legale\nVolo New York-Londra",
+  "classify": "Classifica",
+  "classifying": "Classificazione in corso...",
+  "table": {
+    "description": "Descrizione",
+    "category": "Categoria",
+    "unspsc": "UNSPSC",
+    "confidence": "Affidabilità",
+    "method": "Metodo"
+  }
+}

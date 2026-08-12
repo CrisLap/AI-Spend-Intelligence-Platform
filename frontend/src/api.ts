@@ -1,4 +1,15 @@
+import i18n from "./i18n";
+
 const API = import.meta.env.VITE_API_URL ?? "/api";
+
+class ApiError extends Error {
+  code?: string;
+  status?: number;
+}
+
+function currentUiLanguage(): string {
+  return (i18n.resolvedLanguage ?? i18n.language ?? "en").split("-")[0];
+}
 
 let _token: string | null = localStorage.getItem("token");
 
@@ -17,6 +28,33 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
   _onUnauthorized = fn;
 }
 
+// The Render free-tier backend sleeps after ~15 min idle and takes 30-60s to
+// wake on the next request. Rather than let that look like a hang/broken
+// app, any request still pending after SLOW_THRESHOLD_MS flips a counter
+// (not a boolean - several near-simultaneous requests during cold-start
+// recovery would otherwise flicker the banner on/off as each one resolves)
+// so the UI can show an honest "waking up" message.
+const SLOW_THRESHOLD_MS = 3500;
+let _slowRequestCount = 0;
+let _onSlowRequestChange: ((isSlow: boolean) => void) | null = null;
+export function setSlowRequestHandler(fn: ((isSlow: boolean) => void) | null) {
+  _onSlowRequestChange = fn;
+}
+
+function trackSlowRequest<T>(promise: Promise<T>): Promise<T> {
+  const timer = setTimeout(() => {
+    _slowRequestCount++;
+    if (_slowRequestCount === 1) _onSlowRequestChange?.(true);
+  }, SLOW_THRESHOLD_MS);
+  return promise.finally(() => {
+    clearTimeout(timer);
+    if (_slowRequestCount > 0) {
+      _slowRequestCount--;
+      if (_slowRequestCount === 0) _onSlowRequestChange?.(false);
+    }
+  });
+}
+
 export type SSEEvent = { event: string; data: any };
 
 // Parses a text/event-stream response into {event, data} objects as they
@@ -26,14 +64,21 @@ export type SSEEvent = { event: string; data: any };
 // custom headers - see backend/app/api/cost_saving.py's endpoint docstring
 // for the same tradeoff on the server side.
 async function* streamSSE(path: string): AsyncGenerator<SSEEvent> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { "X-UI-Language": currentUiLanguage() };
   if (_token) headers["Authorization"] = `Bearer ${_token}`;
-  const res = await fetch(`${API}${path}`, { headers });
+  const res = await trackSlowRequest(fetch(`${API}${path}`, { headers }));
   if (!res.ok) {
     if (res.status === 401 && _onUnauthorized) _onUnauthorized();
-    throw new Error(`Stream request failed (${res.status})`);
+    const err = new ApiError(`Stream request failed (${res.status})`);
+    err.code = "streamFailed";
+    err.status = res.status;
+    throw err;
   }
-  if (!res.body) throw new Error("Streaming is not supported by this browser/response");
+  if (!res.body) {
+    const err = new ApiError("Streaming is not supported by this browser/response");
+    err.code = "streamingNotSupported";
+    throw err;
+  }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -56,10 +101,10 @@ async function* streamSSE(path: string): AsyncGenerator<SSEEvent> {
 }
 
 async function request(path: string, opts: RequestInit = {}) {
-  const headers: Record<string,string> = { ...(opts.headers as Record<string,string> || {}) };
+  const headers: Record<string,string> = { "X-UI-Language": currentUiLanguage(), ...(opts.headers as Record<string,string> || {}) };
   if (_token) headers["Authorization"] = `Bearer ${_token}`;
   if (!(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
-  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const res = await trackSlowRequest(fetch(`${API}${path}`, { ...opts, headers }));
   if (!res.ok) {
     if (res.status === 401 && _onUnauthorized) _onUnauthorized();
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -113,9 +158,6 @@ export const search = {
 export const chat = {
   send: (message: string, session_id?: number) =>
     request("/chat", { method: "POST", body: JSON.stringify({ message, session_id }) }),
-  sessions: () => request("/chat/sessions"),
-  messages: (session_id: number) => request(`/chat/sessions/${session_id}/messages`),
-  deleteSession: (id: number) => request(`/chat/sessions/${id}`, { method: "DELETE" }),
 };
 
 export const analytics = {
@@ -143,6 +185,8 @@ export const costSaving = {
 export const assistant = {
   send: (message: string, session_id?: number) =>
     request("/assistant", { method: "POST", body: JSON.stringify({ message, session_id }) }),
+  sendStream: (message: string, session_id?: number) =>
+    streamSSE(`/assistant/stream?message=${encodeURIComponent(message)}${session_id ? `&session_id=${session_id}` : ""}`),
 };
 
 export const feedback = {

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import Markdown from "./Markdown";
 
 export type AgentStep = {
   index: number;
@@ -9,19 +11,16 @@ export type AgentStep = {
   mode?: string | null;
 };
 
-const MODE_LABEL: Record<string, string> = {
-  structured: "tool call",
-  text_parsed: "ReAct text",
-};
-
-// The backend returns the full trace in one response (no streaming exists
-// in this project yet - see the Fase 2 roadmap). This component reveals
-// steps one at a time on the client instead of dumping them all at once,
-// so the agent's reasoning still reads as a sequence - the data behind it
-// is real, only the reveal is staged.
+// The backend returns the full trace in one response for history replays
+// (live runs stream one step at a time over SSE - see CostSavingAgentPage's
+// animate=!running). This component reveals steps one at a time on the
+// client for a replay instead of dumping them all at once, so the agent's
+// reasoning still reads as a sequence - the data behind it is real, only
+// the reveal is staged.
 const REVEAL_INTERVAL_MS = 550;
 
 export default function AgentStepTimeline({ steps, animate = true }: { steps: AgentStep[]; animate?: boolean }) {
+  const { t } = useTranslation("costSaving");
   const [visible, setVisible] = useState(animate ? 0 : steps.length);
 
   useEffect(() => {
@@ -41,7 +40,7 @@ export default function AgentStepTimeline({ steps, animate = true }: { steps: Ag
   }, [steps, animate]);
 
   if (steps.length === 0) {
-    return <p className="text-sm text-muted">Nessun passaggio registrato.</p>;
+    return <p className="text-sm text-muted">{t("timeline.empty")}</p>;
   }
 
   return (
@@ -49,27 +48,29 @@ export default function AgentStepTimeline({ steps, animate = true }: { steps: Ag
       {steps.slice(0, visible).map((s, i) => (
         <div key={i} className="rounded border border-border bg-panel-2 p-3 text-sm">
           {s.thought && (
-            <p className="text-parchment">
-              <span className="text-muted">Thought:</span> {s.thought}
-            </p>
+            <div className="text-parchment">
+              <span className="text-muted">{t("timeline.thought")}</span> <Markdown>{s.thought}</Markdown>
+            </div>
           )}
           {s.tool && (
             <p className="mt-1 text-teal">
-              <span className="text-muted">Action:</span> {s.tool}
+              <span className="text-muted">{t("timeline.action")}</span> {s.tool}
               {s.tool_input ? `("${s.tool_input}")` : ""}
               {s.mode && (
                 <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted">
-                  {MODE_LABEL[s.mode] ?? s.mode}
+                  {t(`timeline.mode.${s.mode}`, { defaultValue: s.mode })}
                 </span>
               )}
             </p>
           )}
           {s.observation && (
-            <p className="mt-1 whitespace-pre-line text-xs text-muted">{s.observation}</p>
+            <div className="mt-1 whitespace-pre-line text-xs text-muted">
+              <Markdown>{s.observation}</Markdown>
+            </div>
           )}
         </div>
       ))}
-      {animate && visible < steps.length && <p className="text-xs italic text-muted">Analisi in corso...</p>}
+      {animate && visible < steps.length && <p className="text-xs italic text-muted">{t("timeline.analyzing")}</p>}
     </div>
   );
 }

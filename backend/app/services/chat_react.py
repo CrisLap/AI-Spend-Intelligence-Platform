@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
-from app.services.agents.react_engine import Tool, build_system_prompt, format_observations, run_react
+from app.services.agents.react_engine import (
+    ReactStep,
+    Tool,
+    build_system_prompt,
+    format_observations,
+    iter_react_steps,
+    run_react,
+)
 from app.services.ai import chat
 from app.services.guardrails import sanitize_output, validate_input
 
@@ -14,26 +21,18 @@ _ROLE_DESCRIPTION = (
 )
 
 
-def answer_with_react(
+def _build_react_call(
     message: str,
     context: list[dict],
-    conversation_history: list[dict] | None = None,
-    retrieve_fn: Callable[[str], list[dict]] | None = None,
-    history_summary: str | None = None,
-) -> str:
-    """Runs a genuine ReAct loop: the model can issue further search_spend
-    actions (via retrieve_fn) before committing to a Final Answer, instead of
-    reasoning over a single fixed context in one shot.
-
-    Thin wrapper around the generic multi-tool engine in
-    app.services.agents.react_engine (also used by the Cost Saving Agent) -
-    kept as its own function because chat_service.py depends on this exact
-    signature and chat_service tests monkeypatch this module's `chat`.
-    """
-    guard = validate_input(message)
-    if guard:
-        return guard
-
+    conversation_history: list[dict] | None,
+    retrieve_fn: Callable[[str], list[dict]] | None,
+    history_summary: str | None,
+    lang: str,
+) -> dict:
+    """Shared setup between answer_with_react() (batch) and
+    answer_with_react_stream() (SSE) - both run the identical ReAct
+    configuration, just consumed differently. Mirrors
+    cost_saving_agent.py::_react_kwargs's role for that agent family."""
     history_text = ""
     if history_summary:
         history_text += f"[Summary of earlier conversation]: {history_summary}\n"
@@ -51,15 +50,63 @@ def answer_with_react(
         ),
         fn=lambda query: retrieve_fn(query) if retrieve_fn else [],
     )
-    system_prompt = build_system_prompt(_ROLE_DESCRIPTION, [tool])
-    task_prompt = f"## Conversation History\n{history_text or 'None yet.'}\n\n## Question\n{message}"
+    return {
+        "chat_fn": chat,
+        "system_prompt": build_system_prompt(_ROLE_DESCRIPTION, [tool], lang=lang),
+        "task_prompt": f"## Conversation History\n{history_text or 'None yet.'}\n\n## Question\n{message}",
+        "tools": [tool],
+        "initial_observations": format_observations(context),
+        "max_steps": _MAX_REACT_STEPS,
+    }
 
-    trace = run_react(
-        chat_fn=chat,
-        system_prompt=system_prompt,
-        task_prompt=task_prompt,
-        tools=[tool],
-        initial_observations=format_observations(context),
-        max_steps=_MAX_REACT_STEPS,
-    )
+
+def answer_with_react(
+    message: str,
+    context: list[dict],
+    conversation_history: list[dict] | None = None,
+    retrieve_fn: Callable[[str], list[dict]] | None = None,
+    history_summary: str | None = None,
+    lang: str = "en",
+) -> str:
+    """Runs a genuine ReAct loop: the model can issue further search_spend
+    actions (via retrieve_fn) before committing to a Final Answer, instead of
+    reasoning over a single fixed context in one shot.
+
+    Thin wrapper around the generic multi-tool engine in
+    app.services.agents.react_engine (also used by the Cost Saving Agent) -
+    kept as its own function because chat_service.py depends on this exact
+    signature and chat_service tests monkeypatch this module's `chat`.
+    """
+    guard = validate_input(message, lang=lang)
+    if guard:
+        return guard
+
+    trace = run_react(**_build_react_call(message, context, conversation_history, retrieve_fn, history_summary, lang))
     return sanitize_output(trace.final_answer)
+
+
+def answer_with_react_stream(
+    message: str,
+    context: list[dict],
+    conversation_history: list[dict] | None = None,
+    retrieve_fn: Callable[[str], list[dict]] | None = None,
+    history_summary: str | None = None,
+    lang: str = "en",
+) -> Iterator[tuple[ReactStep, str | None]]:
+    """Same pipeline as answer_with_react(), but yields each ReAct step as it
+    happens instead of returning only the final answer - the chat
+    equivalent of cost_saving_agent.py::analyze_stream. A guarded message
+    short-circuits into a single synthetic step carrying the guard message
+    as its final answer, so callers never need a separate non-streaming
+    guard path."""
+    guard = validate_input(message, lang=lang)
+    if guard:
+        yield ReactStep(index=0, thought=None, tool=None, tool_input=None, observation=None, mode=None), guard
+        return
+
+    for step_obj, final_answer in iter_react_steps(
+        **_build_react_call(message, context, conversation_history, retrieve_fn, history_summary, lang)
+    ):
+        if final_answer is not None:
+            final_answer = sanitize_output(final_answer)
+        yield step_obj, final_answer

@@ -1,0 +1,7 @@
+{
+  "title": "Ricerca semantica",
+  "description": "Cerca in tutti i documenti e le voci di spesa usando il linguaggio naturale.",
+  "placeholder": "es. Trova tutte le fatture di toner HP",
+  "search": "Cerca",
+  "resultsCount": "{{count}} risultati"
+}

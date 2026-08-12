@@ -4,13 +4,28 @@ import math
 
 from app.models.document import LineItem
 from app.services.ai import cosine_similarity, embed_text
+from app.services.i18n_strings import translate as _t
+
+# Computed once at document-processing time (app/api/documents.py) and
+# stored on LineItemGroup - same "fixed at generation time" caveat as
+# anomalies.py's reasons, see that module's comment for why.
+_STRINGS = {
+    "en": {
+        "exact_match": "same supplier + invoice + amount",
+        "similar_match": "similar description + matching amount",
+    },
+    "it": {
+        "exact_match": "stesso fornitore + fattura + importo",
+        "similar_match": "descrizione simile + importo corrispondente",
+    },
+}
 
 
 def _amounts_close(a: float, b: float, rel_tol: float = 0.02) -> bool:
     return math.isclose(a, b, rel_tol=rel_tol, abs_tol=0.01)
 
 
-def find_duplicates(items: list[LineItem], threshold: float = 0.88) -> list[dict]:
+def find_duplicates(items: list[LineItem], threshold: float = 0.88, lang: str = "en") -> list[dict]:
     groups = []
     used = set()
     for i in range(len(items)):
@@ -47,10 +62,9 @@ def find_duplicates(items: list[LineItem], threshold: float = 0.88) -> list[dict
                     cluster_similarities.append(sim)
         if len(cluster) > 1:
             used.update(cluster)
-            reason = (
-                "same supplier + invoice + amount"
-                if items[cluster[0]].invoice_number
-                else "similar description + matching amount"
+            reason = _t(
+                _STRINGS, lang,
+                "exact_match" if items[cluster[0]].invoice_number else "similar_match",
             )
             groups.append({
                 "reason": reason,

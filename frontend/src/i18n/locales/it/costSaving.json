@@ -1,0 +1,48 @@
+{
+  "title": "Cost Saving Agent",
+  "subtitle": "Tre agenti AI specializzati, costruiti sullo stesso motore ReAct riusabile, che analizzano la spesa reale e propongono raccomandazioni verificabili.",
+  "agentTypes": {
+    "cost_saving": {
+      "label": "Cost Saving",
+      "description": "Analizza la spesa reale (fornitori, anomalie, contratti) e propone opportunità di risparmio verificabili, non numeri inventati.",
+      "presetGoals": ["Trova opportunità di risparmio", "Analizza le variazioni di spesa per fornitore"]
+    },
+    "forecast": {
+      "label": "Forecast",
+      "description": "Proietta la spesa del prossimo mese a partire dal trend storico reale (regressione lineare).",
+      "presetGoals": ["Prevedi la spesa del prossimo mese"]
+    },
+    "contract_risk": {
+      "label": "Contract Risk",
+      "description": "Cerca clausole a rischio nei contratti indicizzati - penali, esclusive, mancanza di un tetto massimo sui prezzi.",
+      "presetGoals": ["Verifica i rischi contrattuali", "Verifica i contratti in scadenza"]
+    }
+  },
+  "goalPlaceholder": "Descrivi l'obiettivo...",
+  "analyze": "Analizza",
+  "analyzing": "Analisi in corso...",
+  "error": "Errore: {{message}}",
+  "reasoning": "Ragionamento dell'agente",
+  "recommendations": "Raccomandazioni",
+  "recommendationsCount": "Raccomandazioni ({{count}})",
+  "noRecommendations": "Nessuna opportunità rilevata nei dati attuali.",
+  "history": "Cronologia",
+  "timeline": {
+    "empty": "Nessun passaggio registrato.",
+    "analyzing": "Analisi in corso...",
+    "thought": "Pensiero:",
+    "action": "Azione:",
+    "mode": {
+      "structured": "chiamata tool",
+      "text_parsed": "testo ReAct"
+    }
+  },
+  "card": {
+    "perYearEstimated": "/ anno stimato",
+    "supplier": "Fornitore: {{value}}",
+    "category": "Categoria: {{value}}",
+    "actualSpend": "Spesa reale",
+    "forecastSpend": "Previsione",
+    "forecastPoint": "Prossimo mese"
+  }
+}

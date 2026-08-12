@@ -6,11 +6,12 @@ from collections.abc import Iterator
 from sqlalchemy.orm import Session
 
 from app.models.agent_run import AgentRun
-from app.services.agents.react_engine import ReactStep, ReactTrace, build_system_prompt, iter_react_steps, run_react
+from app.services.agents.react_engine import ReactTrace, build_system_prompt, iter_react_steps, run_react, step_to_dict
 from app.services.agents.tools import build_contract_risk_tools, build_forecast_tools, build_tools
 from app.services.ai import chat, chat_with_tools
 from app.services.analytics import forecast_next_month_spend, get_supplier_variance
 from app.services.contract_intelligence import search_contracts
+from app.services.i18n_strings import translate as _t
 
 _MAX_STEPS = 4
 
@@ -72,8 +73,67 @@ _RISK_SEARCH_QUERIES = (
 )
 _RISK_SCORE_THRESHOLD = 0.55
 
+# Recommendation text is deterministic (computed from real data, not LLM
+# prose - see analyze()'s docstring), so it can be authored per-language up
+# front rather than translated at request time. Rendered once when the run
+# is created (_persist_run) using whichever lang the request carried, then
+# stored fixed in AgentRun.recommendations_json - same "generated once,
+# fixed thereafter" pattern as the rest of that row (summary, steps).
+_STRINGS = {
+    "en": {
+        "uncategorized": "uncategorized category",
+        "renegotiate_title": "Renegotiate the contract with {supplier}",
+        "renegotiate_reason": "Spend up {pct:.1f}% (from €{prev:,.2f} to €{recent:,.2f}) in {categories}.",
+        "renegotiate_evidence": (
+            "Spend history: €{prev:,.2f} -> €{recent:,.2f} "
+            "({prev_count} invoice lines in the previous period, {recent_count} in the recent period)."
+        ),
+        "renewal_title": "Review the renewal terms of contract '{source}'",
+        "renewal_reason": (
+            "The contract text contains an automatic renewal or penalty clause "
+            "worth reviewing before it expires."
+        ),
+        "forecast_title": "Next month's spend forecast",
+        "forecast_reason": (
+            "Trend {trend_word} of €{trend:,.2f}/month calculated over {months} months "
+            "of history. Forecast spend: €{forecast:,.2f}."
+        ),
+        "forecast_evidence": "Monthly history: {history}",
+        "trend_up": "increasing",
+        "trend_down": "decreasing",
+        "trend_stable": "stable",
+        "risk_title": "Contract risk detected in '{source}'",
+        "risk_reason": 'The text semantically matches "{query}" - review the clause before renewal.',
+    },
+    "it": {
+        "uncategorized": "categoria non classificata",
+        "renegotiate_title": "Rinegozia il contratto con {supplier}",
+        "renegotiate_reason": "Spesa in aumento del {pct:.1f}% (da €{prev:,.2f} a €{recent:,.2f}) su {categories}.",
+        "renegotiate_evidence": (
+            "Storico spesa: €{prev:,.2f} -> €{recent:,.2f} "
+            "({prev_count} righe fattura nel periodo precedente, {recent_count} nel periodo recente)."
+        ),
+        "renewal_title": "Verifica le condizioni di rinnovo del contratto '{source}'",
+        "renewal_reason": (
+            "Il testo del contratto contiene una clausola di rinnovo automatico o penale "
+            "che merita revisione prima della scadenza."
+        ),
+        "forecast_title": "Previsione di spesa per il prossimo mese",
+        "forecast_reason": (
+            "Trend {trend_word} di €{trend:,.2f}/mese calcolato su {months} mesi di storico. "
+            "Spesa prevista: €{forecast:,.2f}."
+        ),
+        "forecast_evidence": "Storico mensile: {history}",
+        "trend_up": "in aumento",
+        "trend_down": "in calo",
+        "trend_stable": "stabile",
+        "risk_title": "Rischio contrattuale rilevato in '{source}'",
+        "risk_reason": 'Il testo corrisponde semanticamente a "{query}" - verificare la clausola prima del rinnovo.',
+    },
+}
 
-def _variance_recommendations(user_id: int, db: Session) -> list[dict]:
+
+def _variance_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
     """Flags suppliers whose recent-period spend rose by more than
     _VARIANCE_THRESHOLD_PCT vs. the previous period (see
     analytics.get_supplier_variance) as renegotiation candidates."""
@@ -81,12 +141,12 @@ def _variance_recommendations(user_id: int, db: Session) -> list[dict]:
     for v in get_supplier_variance(user_id=user_id, db=db):
         if v["variance_pct"] < _VARIANCE_THRESHOLD_PCT:
             continue
+        categories = ", ".join(v["categories"]) or _t(_STRINGS, lang, "uncategorized")
         recs.append({
-            "title": f"Rinegozia il contratto con {v['supplier']}",
-            "reason": (
-                f"Spesa in aumento del {v['variance_pct']:.1f}% "
-                f"(da €{v['previous_total']:,.2f} a €{v['recent_total']:,.2f}) "
-                f"su {', '.join(v['categories']) or 'categoria non classificata'}."
+            "title": _t(_STRINGS, lang, "renegotiate_title", supplier=v["supplier"]),
+            "reason": _t(
+                _STRINGS, lang, "renegotiate_reason",
+                pct=v["variance_pct"], prev=v["previous_total"], recent=v["recent_total"], categories=categories,
             ),
             "supplier": v["supplier"],
             "category": v["categories"][0] if v["categories"] else None,
@@ -94,15 +154,17 @@ def _variance_recommendations(user_id: int, db: Session) -> list[dict]:
             "currency": "EUR",
             "confidence": "medium",
             "evidence": [
-                f"Storico spesa: €{v['previous_total']:,.2f} -> €{v['recent_total']:,.2f} "
-                f"({v['previous_count']} righe fattura nel periodo precedente, "
-                f"{v['recent_count']} nel periodo recente)."
+                _t(
+                    _STRINGS, lang, "renegotiate_evidence",
+                    prev=v["previous_total"], recent=v["recent_total"],
+                    prev_count=v["previous_count"], recent_count=v["recent_count"],
+                )
             ],
         })
     return recs
 
 
-def _contract_recommendations(user_id: int, db: Session) -> list[dict]:
+def _contract_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
     """Flags contracts whose indexed text semantically matches renewal/penalty
     language, using the real contract-clause RAG (contract_intelligence.py) -
     not a keyword scan of the raw file."""
@@ -115,8 +177,8 @@ def _contract_recommendations(user_id: int, db: Session) -> list[dict]:
                 continue
             seen_docs.add(doc_id)
             recs.append({
-                "title": f"Verifica le condizioni di rinnovo del contratto '{hit.get('source') or doc_id}'",
-                "reason": "Il testo del contratto contiene una clausola di rinnovo automatico o penale che merita revisione prima della scadenza.",
+                "title": _t(_STRINGS, lang, "renewal_title", source=hit.get("source") or doc_id),
+                "reason": _t(_STRINGS, lang, "renewal_reason"),
                 "supplier": None,
                 "category": None,
                 "estimated_saving": None,
@@ -127,7 +189,7 @@ def _contract_recommendations(user_id: int, db: Session) -> list[dict]:
     return recs
 
 
-def _forecast_recommendations(user_id: int, db: Session) -> list[dict]:
+def _forecast_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
     """Turns the linear-trend forecast (analytics.forecast_next_month_spend)
     into the same recommendation shape the other agents produce, so the
     frontend needs no special case - but with no estimated_saving, since a
@@ -137,24 +199,30 @@ def _forecast_recommendations(user_id: int, db: Session) -> list[dict]:
     if not result["available"]:
         return []
     trend = result["trend_per_month"]
-    trend_word = "in aumento" if trend > 0 else "in calo" if trend < 0 else "stabile"
+    trend_key = "trend_up" if trend > 0 else "trend_down" if trend < 0 else "trend_stable"
+    trend_word = _t(_STRINGS, lang, trend_key)
     history = ", ".join(f"{m}: €{t:,.2f}" for m, t in zip(result["months"], result["monthly_totals"]))
     return [{
-        "title": "Previsione di spesa per il prossimo mese",
-        "reason": (
-            f"Trend {trend_word} di €{abs(trend):,.2f}/mese calcolato su {len(result['months'])} mesi "
-            f"di storico. Spesa prevista: €{result['forecast_next_month']:,.2f}."
+        "title": _t(_STRINGS, lang, "forecast_title"),
+        "reason": _t(
+            _STRINGS, lang, "forecast_reason",
+            trend_word=trend_word, trend=abs(trend), months=len(result["months"]), forecast=result["forecast_next_month"],
         ),
         "supplier": None,
         "category": None,
         "estimated_saving": None,
         "currency": "EUR",
         "confidence": "medium" if len(result["months"]) >= 5 else "low",
-        "evidence": [f"Storico mensile: {history}"],
+        "evidence": [_t(_STRINGS, lang, "forecast_evidence", history=history)],
+        "chart": {
+            "months": result["months"],
+            "monthly_totals": result["monthly_totals"],
+            "forecast_next_month": result["forecast_next_month"],
+        },
     }]
 
 
-def _contract_risk_recommendations(user_id: int, db: Session) -> list[dict]:
+def _contract_risk_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
     """Same real contract-clause RAG as _contract_recommendations(), just
     searched for risk language (penalties, exclusivity, no price cap)
     instead of renewal language - the Contract Risk Agent's counterpart."""
@@ -168,8 +236,8 @@ def _contract_risk_recommendations(user_id: int, db: Session) -> list[dict]:
                 continue
             seen.add(key)
             recs.append({
-                "title": f"Rischio contrattuale rilevato in '{hit.get('source') or doc_id}'",
-                "reason": f'Il testo corrisponde semanticamente a "{query}" - verificare la clausola prima del rinnovo.',
+                "title": _t(_STRINGS, lang, "risk_title", source=hit.get("source") or doc_id),
+                "reason": _t(_STRINGS, lang, "risk_reason", query=query),
                 "supplier": None,
                 "category": None,
                 "estimated_saving": None,
@@ -180,34 +248,23 @@ def _contract_risk_recommendations(user_id: int, db: Session) -> list[dict]:
     return recs
 
 
-def _compute_recommendations(agent_type: str, user_id: int, db: Session) -> list[dict]:
+def _compute_recommendations(agent_type: str, user_id: int, db: Session, lang: str = "en") -> list[dict]:
     if agent_type == "forecast":
-        return _forecast_recommendations(user_id, db)
+        return _forecast_recommendations(user_id, db, lang)
     if agent_type == "contract_risk":
-        return _contract_risk_recommendations(user_id, db)
-    recommendations = _variance_recommendations(user_id, db) + _contract_recommendations(user_id, db)
+        return _contract_risk_recommendations(user_id, db, lang)
+    recommendations = _variance_recommendations(user_id, db, lang) + _contract_recommendations(user_id, db, lang)
     recommendations.sort(key=lambda r: r.get("estimated_saving") or 0, reverse=True)
     return recommendations
 
 
-def _step_to_dict(step: ReactStep) -> dict:
-    return {
-        "index": step.index,
-        "thought": step.thought,
-        "tool": step.tool,
-        "tool_input": step.tool_input,
-        "observation": step.observation,
-        "mode": step.mode,
-    }
-
-
-def _react_kwargs(goal: str, user_id: int, db: Session, agent_type: str) -> dict:
+def _react_kwargs(goal: str, user_id: int, db: Session, agent_type: str, lang: str = "en") -> dict:
     """Shared setup between analyze() (batch) and analyze_stream() (SSE) -
     both run the identical ReAct configuration, just consumed differently."""
     tools = _TOOL_BUILDERS[agent_type](user_id, db)
     return {
         "chat_fn": chat,
-        "system_prompt": build_system_prompt(_ROLE_DESCRIPTIONS[agent_type], tools),
+        "system_prompt": build_system_prompt(_ROLE_DESCRIPTIONS[agent_type], tools, lang=lang),
         "task_prompt": f"## Goal\n{goal}",
         "tools": tools,
         "initial_observations": None,
@@ -221,18 +278,18 @@ def _react_kwargs(goal: str, user_id: int, db: Session, agent_type: str) -> dict
     }
 
 
-def _persist_run(goal: str, user_id: int, agent_type: str, trace: ReactTrace, db: Session) -> AgentRun:
+def _persist_run(goal: str, user_id: int, agent_type: str, trace: ReactTrace, db: Session, lang: str = "en") -> AgentRun:
     """Computes the deterministic recommendations and saves the run - shared
     tail end of both analyze() and analyze_stream(), see analyze()'s
     docstring for why the recommendations are computed independently of the
     ReAct trace rather than parsed out of it."""
-    recommendations = _compute_recommendations(agent_type, user_id, db)
+    recommendations = _compute_recommendations(agent_type, user_id, db, lang)
 
     run = AgentRun(
         user_id=user_id,
         agent_type=agent_type,
         goal=goal,
-        steps_json=json.dumps([_step_to_dict(s) for s in trace.steps], ensure_ascii=False),
+        steps_json=json.dumps([step_to_dict(s) for s in trace.steps], ensure_ascii=False),
         recommendations_json=json.dumps(recommendations, ensure_ascii=False),
         summary=trace.final_answer,
     )
@@ -242,7 +299,7 @@ def _persist_run(goal: str, user_id: int, agent_type: str, trace: ReactTrace, db
     return run
 
 
-def analyze(goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGENT_TYPE) -> AgentRun:
+def analyze(goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGENT_TYPE, lang: str = "en") -> AgentRun:
     """Runs one of the three agents (agent_type: "cost_saving", "forecast" or
     "contract_risk") for a goal and persists the result.
 
@@ -261,11 +318,13 @@ def analyze(goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGEN
     See analyze_stream() for the incremental (SSE) equivalent of this same
     pipeline.
     """
-    trace = run_react(**_react_kwargs(goal, user_id, db, agent_type))
-    return _persist_run(goal, user_id, agent_type, trace, db)
+    trace = run_react(**_react_kwargs(goal, user_id, db, agent_type, lang))
+    return _persist_run(goal, user_id, agent_type, trace, db, lang)
 
 
-def analyze_stream(goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGENT_TYPE) -> Iterator[str]:
+def analyze_stream(
+    goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGENT_TYPE, lang: str = "en"
+) -> Iterator[str]:
     """Same pipeline as analyze(), but yields each ReAct step as a
     server-sent event as soon as it's produced, instead of waiting for the
     whole trace before responding. Ends with a `done` event carrying the
@@ -278,13 +337,13 @@ def analyze_stream(goal: str, user_id: int, db: Session, agent_type: str = DEFAU
     fastapi.responses.StreamingResponse.
     """
     trace = ReactTrace()
-    for step, final_answer in iter_react_steps(**_react_kwargs(goal, user_id, db, agent_type)):
+    for step, final_answer in iter_react_steps(**_react_kwargs(goal, user_id, db, agent_type, lang)):
         trace.steps.append(step)
-        yield f"event: step\ndata: {json.dumps(_step_to_dict(step), ensure_ascii=False)}\n\n"
+        yield f"event: step\ndata: {json.dumps(step_to_dict(step), ensure_ascii=False)}\n\n"
         if final_answer is not None:
             trace.final_answer = final_answer
 
-    run = _persist_run(goal, user_id, agent_type, trace, db)
+    run = _persist_run(goal, user_id, agent_type, trace, db, lang)
     done_payload = {
         "id": run.id,
         "goal": run.goal,

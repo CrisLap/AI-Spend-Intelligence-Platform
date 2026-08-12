@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { costSaving } from "../api";
 import AgentStepTimeline, { type AgentStep } from "../components/AgentStepTimeline";
 import RecommendationCard, { type Recommendation } from "../components/RecommendationCard";
+import Markdown from "../components/Markdown";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type AgentRun = {
   id: number;
@@ -14,39 +17,28 @@ type AgentRun = {
   created_at: string;
 };
 
-type AgentTypeConfig = {
-  label: string;
-  description: string;
-  presetGoals: string[];
-};
-
-const AGENT_TYPES: Record<string, AgentTypeConfig> = {
-  cost_saving: {
-    label: "Cost Saving",
-    description:
-      "Analizza la spesa reale (fornitori, anomalie, contratti) e propone opportunità di risparmio verificabili, non numeri inventati.",
-    presetGoals: ["Trova opportunità di risparmio", "Analizza le variazioni di spesa per fornitore"],
-  },
-  forecast: {
-    label: "Forecast",
-    description: "Proietta la spesa del prossimo mese a partire dal trend storico reale (regressione lineare).",
-    presetGoals: ["Prevedi la spesa del prossimo mese"],
-  },
-  contract_risk: {
-    label: "Contract Risk",
-    description:
-      "Cerca clausole a rischio nei contratti indicizzati - penali, esclusive, mancanza di un tetto massimo sui prezzi.",
-    presetGoals: ["Verifica i rischi contrattuali", "Verifica i contratti in scadenza"],
-  },
-};
-
 const AGENT_TYPE_ORDER = ["cost_saving", "forecast", "contract_risk"];
 
 export default function CostSavingAgentPage() {
+  const { t } = useTranslation("costSaving");
+  useDocumentTitle(t("title"));
+
+  const AGENT_TYPES: Record<string, { label: string; description: string; presetGoals: string[] }> =
+    Object.fromEntries(
+      AGENT_TYPE_ORDER.map((type) => [
+        type,
+        {
+          label: t(`agentTypes.${type}.label`),
+          description: t(`agentTypes.${type}.description`),
+          presetGoals: t(`agentTypes.${type}.presetGoals`, { returnObjects: true }) as string[],
+        },
+      ])
+    );
+
   // Handed off from the Chat page when the intent router (POST /assistant)
   // decides a message is a goal for one of these agents rather than a
   // spend question - prefills the type/goal so the user only has to
-  // press "Analizza", instead of retyping what they already asked.
+  // press "Analyze", instead of retyping what they already asked.
   const location = useLocation();
   const handoff = location.state as { agentType?: string; goal?: string } | null;
   const initialAgentType = handoff?.agentType && AGENT_TYPES[handoff.agentType] ? handoff.agentType : "cost_saving";
@@ -111,11 +103,8 @@ export default function CostSavingAgentPage() {
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div>
-        <h1 className="text-xl font-bold">Cost Saving Agent</h1>
-        <p className="mt-1 text-sm text-muted">
-          Tre agenti AI specializzati, costruiti sullo stesso motore ReAct riusabile, che analizzano la spesa reale
-          e propongono raccomandazioni verificabili.
-        </p>
+        <h1 className="text-xl font-bold">{t("title")}</h1>
+        <p className="mt-1 text-sm text-muted">{t("subtitle")}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -155,7 +144,8 @@ export default function CostSavingAgentPage() {
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             disabled={running}
-            placeholder="Descrivi l'obiettivo..."
+            placeholder={t("goalPlaceholder")}
+            aria-label={t("goalPlaceholder")}
             className="flex-1 rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
           />
           <button
@@ -163,31 +153,35 @@ export default function CostSavingAgentPage() {
             disabled={running}
             className="rounded bg-teal px-4 py-2 text-xs font-semibold text-surface disabled:opacity-50"
           >
-            {running ? "Analisi in corso..." : "Analizza"}
+            {running ? t("analyzing") : t("analyze")}
           </button>
         </div>
       </form>
 
-      {error && <p className="text-sm text-danger">Errore: {error}</p>}
+      {error && <p className="text-sm text-danger">{t("error", { message: error })}</p>}
 
       {(running || run) && (
         <div className="flex flex-col gap-4">
           <div className="rounded border border-border bg-panel p-4">
-            <h2 className="mb-3 text-sm font-semibold">Ragionamento dell'agente</h2>
+            <h2 className="mb-3 text-sm font-semibold">{t("reasoning")}</h2>
             {/* Live runs already arrive one step at a time over SSE, so no
                 extra client-side staging is needed (animate=false); a run
                 loaded from history replays with the staged reveal instead. */}
             <AgentStepTimeline steps={displaySteps} animate={!running} />
-            {run?.summary && <p className="mt-3 border-t border-border pt-3 text-sm text-parchment">{run.summary}</p>}
+            {run?.summary && (
+              <div className="mt-3 border-t border-border pt-3 text-sm text-parchment">
+                <Markdown>{run.summary}</Markdown>
+              </div>
+            )}
           </div>
 
           {run && (
             <div>
               <h2 className="mb-3 text-sm font-semibold">
-                Raccomandazioni {run.recommendations.length > 0 ? `(${run.recommendations.length})` : ""}
+                {run.recommendations.length > 0 ? t("recommendationsCount", { count: run.recommendations.length }) : t("recommendations")}
               </h2>
               {run.recommendations.length === 0 ? (
-                <p className="text-sm text-muted">Nessuna opportunità rilevata nei dati attuali.</p>
+                <p className="text-sm text-muted">{t("noRecommendations")}</p>
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {run.recommendations.map((r, i) => (
@@ -202,7 +196,7 @@ export default function CostSavingAgentPage() {
 
       {history.length > 0 && (
         <div className="rounded border border-border bg-panel p-4">
-          <h2 className="mb-3 text-sm font-semibold">Cronologia</h2>
+          <h2 className="mb-3 text-sm font-semibold">{t("history")}</h2>
           <div className="flex flex-col gap-2">
             {history.map((h) => (
               <button

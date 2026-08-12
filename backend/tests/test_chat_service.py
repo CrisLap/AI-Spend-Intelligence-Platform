@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.models.chat import ChatMessage, ChatSession
 from app.models.document import Document, LineItem
-from app.services import chat_service
+from app.services import chat_react, chat_service
 from tests.conftest import TestSessionLocal
 
 
@@ -63,4 +63,37 @@ def test_long_conversation_summarizes_old_messages_and_forwards_summary(db, monk
     assert captured["history_summary"] == "Recap: toner and laptop spend discussed."
     # only the most recent messages remain verbatim in conversation_history
     assert len(captured["conversation_history"]) <= 10
+
+
+def test_answer_question_stream_yields_step_events_then_a_done_event_matching_the_batch_shape(db, monkeypatch):
+    """answer_question_stream() must be a real generator yielding
+    incrementally (same guarantee test_cost_saving_stream.py enforces for
+    the Cost Saving Agent's analyze_stream), and its `done` event must carry
+    the same {reply, sources, session_id} shape answer_question() returns."""
+    monkeypatch.setattr(chat_service, "SessionLocal", TestSessionLocal)
+    monkeypatch.setattr(chat_service, "qdrant_search", lambda *a, **kw: [])
+
+    calls = {"n": 0}
+
+    def fake_chat(messages):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return 'Thought: need more data.\nAction: search_spend["toner"]'
+        return 'Thought: done.\nFinal Answer: We spent €500 on toner.'
+
+    monkeypatch.setattr(chat_react, "chat", fake_chat)
+
+    chunks = list(chat_service.answer_question_stream("How much on toner?", None, user_id=1))
+
+    step_chunks = [c for c in chunks if c.startswith("event: step")]
+    done_chunks = [c for c in chunks if c.startswith("event: done")]
+    assert len(step_chunks) == 2  # one tool-call step, one final-answer step
+    assert len(done_chunks) == 1
+    assert chunks[-1] == done_chunks[0]
+
+    import json
+    done_payload = json.loads(done_chunks[0].split("data: ", 1)[1])
+    assert "toner" in done_payload["reply"].lower()
+    assert "session_id" in done_payload
+    assert isinstance(done_payload["sources"], list)
 

@@ -1,48 +1,64 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { classification as clsApi } from "../api";
+import TableScroll from "../components/TableScroll";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export default function Classification() {
+  const { t } = useTranslation(["classification", "categories"]);
+  useDocumentTitle(t("title"));
+  const inputId = useId();
   const [input, setInput] = useState("");
   const [results, setResults] = useState<any[] | null>(null);
   const [error, setError] = useState("");
+  const [classifying, setClassifying] = useState(false);
 
   async function handle() {
+    if (classifying) return;
     const descs = input.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!descs.length) return;
     setError("");
+    setClassifying(true);
     try {
       const res = await clsApi.classify(descs);
       setResults(res.results);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setClassifying(false);
     }
   }
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
-      <h1 className="text-xl font-bold">Spend Classification</h1>
-      <p className="text-xs text-muted">Enter one or more descriptions (one per line) to classify them automatically.</p>
-      <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={6} placeholder="HP LaserJet Toner&#10;Legal consulting&#10;Flight New York-London" className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
-      <button onClick={handle} className="self-start rounded bg-teal px-4 py-1.5 text-xs font-semibold text-surface">Classify</button>
+      <h1 className="text-xl font-bold">{t("title")}</h1>
+      <p className="text-xs text-muted">{t("description")}</p>
+      <label htmlFor={inputId} className="sr-only">{t("title")}</label>
+      <textarea id={inputId} value={input} onChange={(e) => setInput(e.target.value)} rows={6} placeholder={t("placeholder")} className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+      <button onClick={handle} disabled={classifying} className="self-start rounded bg-teal px-4 py-1.5 text-xs font-semibold text-surface disabled:opacity-50">
+        {classifying ? t("classifying") : t("classify")}
+      </button>
       {error && <p className="text-xs text-danger">{error}</p>}
       {results && (
         <div className="rounded border border-border bg-panel overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
-              <th className="p-3">Description</th><th className="p-3">Category</th><th className="p-3">UNSPSC</th><th className="p-3">Confidence</th><th className="p-3">Method</th>
-            </tr></thead>
-            <tbody>
-              {results.map((r, i) => (
-                <tr key={i} className="border-b border-border/60">
-                  <td className="p-3">{r.description}</td>
-                  <td className="p-3"><span className="text-xs bg-teal/10 text-teal px-2 py-0.5 rounded">{r.category}</span></td>
-                  <td className="p-3 text-xs text-muted">{r.unspsc || "-"}</td>
-                  <td className="p-3">{(r.confidence * 100).toFixed(0)}%</td>
-                  <td className="p-3 text-xs text-muted">{r.method}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <TableScroll>
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
+                <th className="p-3">{t("table.description")}</th><th className="p-3">{t("table.category")}</th><th className="p-3">{t("table.unspsc")}</th><th className="p-3">{t("table.confidence")}</th><th className="p-3">{t("table.method")}</th>
+              </tr></thead>
+              <tbody>
+                {results.map((r, i) => (
+                  <tr key={i} className="border-b border-border/60">
+                    <td className="p-3">{r.description}</td>
+                    <td className="p-3"><span className="text-xs bg-teal/10 text-teal px-2 py-0.5 rounded">{t(r.category, { ns: "categories", defaultValue: r.category })}</span></td>
+                    <td className="p-3 text-xs text-muted">{r.unspsc || "-"}</td>
+                    <td className="p-3">{(r.confidence * 100).toFixed(0)}%</td>
+                    <td className="p-3 text-xs text-muted">{r.method}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
         </div>
       )}
     </div>

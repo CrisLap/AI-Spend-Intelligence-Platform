@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { analytics } from "../api";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { SkeletonBlock } from "../components/Skeleton";
+import InlineError from "../components/InlineError";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type Dash = {
   total_spend: number; total_items: number; total_documents: number;
@@ -14,26 +18,43 @@ type Dash = {
 const COLORS = ["#2dd4bf", "#f59e0b", "#ef4444", "#22c55e", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
 
 export default function Dashboard() {
+  const { t } = useTranslation("dashboard");
+  useDocumentTitle(t("title"));
   const [data, setData] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
     analytics.dashboard().then(setData).catch(() => setData(null)).finally(() => setLoading(false));
-  }, []);
+  }
+  useEffect(load, []);
 
-  if (loading) return <p className="text-muted">Loading dashboard...</p>;
-  if (!data) return <p className="text-danger">Loading error</p>;
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <SkeletonBlock className="h-7 w-40" />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => <SkeletonBlock key={i} className="h-20" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SkeletonBlock className="h-72" />
+          <SkeletonBlock className="h-72" />
+        </div>
+      </div>
+    );
+  }
+  if (!data) return <InlineError message={t("loadingError")} onRetry={load} />;
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-bold">Dashboard</h1>
+      <h1 className="text-xl font-bold">{t("title")}</h1>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { label: "Total Spend", value: `€${data.total_spend.toLocaleString()}`, color: "text-teal" },
-          { label: "Items", value: data.total_items, color: "text-parchment" },
-          { label: "Documents", value: data.total_documents, color: "text-parchment" },
-          { label: "Anomalies", value: data.anomaly_count, color: data.anomaly_count > 0 ? "text-danger" : "text-ok" },
-          { label: "Duplicates", value: data.duplicate_count, color: data.duplicate_count > 0 ? "text-amber" : "text-ok" },
+          { label: t("kpi.totalSpend"), value: `€${data.total_spend.toLocaleString()}`, color: "text-teal" },
+          { label: t("kpi.items"), value: data.total_items, color: "text-parchment" },
+          { label: t("kpi.documents"), value: data.total_documents, color: "text-parchment" },
+          { label: t("kpi.anomalies"), value: data.anomaly_count, color: data.anomaly_count > 0 ? "text-danger" : "text-ok" },
+          { label: t("kpi.duplicates"), value: data.duplicate_count, color: data.duplicate_count > 0 ? "text-amber" : "text-ok" },
         ].map((k) => (
           <div key={k.label} className="rounded border border-border bg-panel p-4">
             <p className="text-xs text-muted uppercase tracking-wide">{k.label}</p>
@@ -44,7 +65,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded border border-border bg-panel p-4">
-          <h2 className="text-sm font-semibold mb-3">Spend by Category</h2>
+          <h2 className="text-sm font-semibold mb-3">{t("spendByCategory")}</h2>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={data.spend_by_category.slice(0, 6)} dataKey="total" nameKey="category" cx="50%" cy="50%" outerRadius={90} label={({ category, percentage }) => `${category} ${percentage}%`}>
@@ -56,7 +77,7 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded border border-border bg-panel p-4">
-          <h2 className="text-sm font-semibold mb-3">Monthly Spend</h2>
+          <h2 className="text-sm font-semibold mb-3">{t("monthlySpend")}</h2>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.spend_by_month}>
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b6b80" }} />
@@ -70,7 +91,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded border border-border bg-panel p-4">
-          <h2 className="text-sm font-semibold mb-3">Top Suppliers</h2>
+          <h2 className="text-sm font-semibold mb-3">{t("topSuppliers")}</h2>
           <div className="flex flex-col gap-2">
             {data.top_suppliers.map((s) => (
               <div key={s.supplier} className="flex items-center justify-between text-sm border-b border-border/60 py-1.5">
@@ -81,7 +102,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="rounded border border-border bg-panel p-4">
-          <h2 className="text-sm font-semibold mb-3">Top Categories</h2>
+          <h2 className="text-sm font-semibold mb-3">{t("topCategories")}</h2>
           <div className="flex flex-col gap-2">
             {data.top_categories.map((c) => (
               <div key={c.category} className="flex items-center justify-between text-sm border-b border-border/60 py-1.5">

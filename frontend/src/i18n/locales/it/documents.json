@@ -1,0 +1,18 @@
+{
+  "title": "Documenti",
+  "uploading": "Caricamento...",
+  "uploadAndAnalyze": "Carica e analizza",
+  "table": {
+    "name": "Nome",
+    "type": "Tipo",
+    "status": "Stato",
+    "date": "Data"
+  },
+  "delete": "Elimina",
+  "empty": "Nessun documento caricato",
+  "deleteDialog": {
+    "title": "Elimina documento",
+    "message": "Eliminare \"{{name}}\"? Verranno eliminate anche le voci estratte.",
+    "confirm": "Elimina"
+  }
+}

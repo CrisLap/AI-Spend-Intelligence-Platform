@@ -1,0 +1,11 @@
+{
+  "createAccount": "Crea un account",
+  "signInPrompt": "Accedi alla piattaforma",
+  "fullNamePlaceholder": "Nome e cognome",
+  "emailPlaceholder": "Email",
+  "passwordPlaceholder": "Password",
+  "register": "Registrati",
+  "signIn": "Accedi",
+  "switchToSignIn": "Hai già un account? Accedi",
+  "switchToRegister": "Nuovo utente? Registrati"
+}

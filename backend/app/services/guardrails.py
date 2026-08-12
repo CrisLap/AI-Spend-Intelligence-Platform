@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from app.services.i18n_strings import translate
+
 # Real users of this platform write in Italian, so English-only patterns
 # leave these guardrails almost entirely inactive against real traffic -
 # every pattern below matches both languages.
@@ -30,14 +32,26 @@ _TOPIC_BOUNDARY = re.compile(
 _CARD_NUMBER_RE = re.compile(r"\b(?:\d[ -]?){13,16}\d\b")
 
 
-def validate_input(text: str) -> str | None:
+_STRINGS = {
+    "en": {
+        "sensitive": "Request contains sensitive information that cannot be processed.",
+        "out_of_scope": "Request is outside the scope of spend intelligence.",
+    },
+    "it": {
+        "sensitive": "La richiesta contiene informazioni sensibili che non possono essere elaborate.",
+        "out_of_scope": "La richiesta esula dall'ambito della spend intelligence.",
+    },
+}
+
+
+def validate_input(text: str, lang: str = "en") -> str | None:
     for pat in _SENSITIVE_PATTERNS:
         if pat.search(text):
-            return "Request contains sensitive information that cannot be processed."
+            return translate(_STRINGS, lang, "sensitive")
     if _CARD_NUMBER_RE.search(text):
-        return "Request contains sensitive information that cannot be processed."
+        return translate(_STRINGS, lang, "sensitive")
     if _TOPIC_BOUNDARY.search(text):
-        return "Request is outside the scope of spend intelligence."
+        return translate(_STRINGS, lang, "out_of_scope")
     return None
 
 

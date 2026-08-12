@@ -56,6 +56,13 @@ def test_forecast_recommendations_reflect_a_real_trend(db):
     assert len(recs) == 1
     assert recs[0]["estimated_saving"] is None  # a forecast isn't a saving figure
     assert "500" in recs[0]["reason"] or "500,00" in recs[0]["reason"]
+    # the chart payload carries the same real numbers the text reason is
+    # built from, for the frontend's ForecastChart - not a second,
+    # independently-computed figure that could drift from the text.
+    chart = recs[0]["chart"]
+    assert chart["months"] == ["2026-01", "2026-02", "2026-03", "2026-04"]
+    assert chart["monthly_totals"] == [100.0, 200.0, 300.0, 400.0]
+    assert chart["forecast_next_month"] == 500.0
 
 
 def test_forecast_recommendations_empty_without_enough_history(db):

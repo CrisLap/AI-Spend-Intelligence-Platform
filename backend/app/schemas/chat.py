@@ -14,6 +14,7 @@ class ChatSource(BaseModel):
     text: str
     score: float
     source: str
+    document_id: int | None = None
 
 
 class ChatResponse(BaseModel):

@@ -1,0 +1,18 @@
+{
+  "title": "Documents",
+  "uploading": "Uploading...",
+  "uploadAndAnalyze": "Upload & Analyze",
+  "table": {
+    "name": "Name",
+    "type": "Type",
+    "status": "Status",
+    "date": "Date"
+  },
+  "delete": "Delete",
+  "empty": "No documents uploaded",
+  "deleteDialog": {
+    "title": "Delete document",
+    "message": "Delete \"{{name}}\"? This also deletes its extracted line items.",
+    "confirm": "Delete"
+  }
+}

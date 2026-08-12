@@ -1,0 +1,22 @@
+{
+  "title": "Admin",
+  "retraining": "Riaddestramento...",
+  "retrainButton": "Riaddestra il classificatore dal feedback",
+  "table": {
+    "email": "Email",
+    "name": "Nome",
+    "role": "Ruolo",
+    "created": "Creato il"
+  },
+  "hideLog": "Nascondi log",
+  "auditLog": "Log audit",
+  "delete": "Elimina",
+  "loadingAuditLog": "Caricamento log audit...",
+  "noAuditEntries": "Nessuna voce di audit per questo utente.",
+  "empty": "Nessun utente",
+  "deleteDialog": {
+    "title": "Elimina utente",
+    "message": "Eliminare l'utente {{email}}? Verranno eliminati anche i suoi documenti e dati.",
+    "confirm": "Elimina"
+  }
+}

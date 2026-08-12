@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_ui_language
 from app.models.document import (
     ContractClause,
     DocType,
@@ -132,6 +132,7 @@ def process_document(
     doc_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    lang: str = Depends(get_ui_language),
 ):
     doc = db.query(Document).filter(Document.id == doc_id, Document.user_id == user.id).first()
     if not doc:
@@ -180,7 +181,7 @@ def process_document(
                 item.confidence = cls["confidence"]
                 item.classification_method = cls["method"]
 
-            anomalies = detect_anomalies(items, db=db)
+            anomalies = detect_anomalies(items, db=db, lang=lang)
             for item, anom in zip(items, anomalies):
                 item.is_anomaly = anom["is_anomaly"]
                 item.anomaly_reason = anom["reason"]
@@ -202,7 +203,7 @@ def process_document(
                         },
                     )
 
-            dup_groups = find_duplicates(items, threshold=settings.duplicate_similarity_threshold)
+            dup_groups = find_duplicates(items, threshold=settings.duplicate_similarity_threshold, lang=lang)
             if dup_groups:
                 from app.models.document import LineItemGroup, LineItemGroupItem
                 for g in dup_groups:

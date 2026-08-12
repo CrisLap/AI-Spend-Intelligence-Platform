@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { getToken, setToken, setUnauthorizedHandler, auth } from "./api";
 import Layout from "./components/Layout";
+import BackendWakingBanner from "./components/BackendWakingBanner";
+import ToastContainer from "./components/ToastContainer";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
@@ -17,9 +21,11 @@ import AdminUsers from "./pages/AdminUsers";
 export type User = { id: number; email: string; full_name: string; role: string };
 
 export default function App() {
+  const { t } = useTranslation("common");
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // A 401 from ANY request (not just the initial session check) must log
@@ -42,24 +48,32 @@ export default function App() {
     }
   }, []);
 
-  if (loading) return <div className="flex h-screen items-center justify-center text-muted">Loading...</div>;
-
-  if (!user) return <Login onLogin={(u) => { setUser(u); navigate("/"); }} />;
-
   return (
-    <Layout user={user} onLogout={() => { setToken(null); setUser(null); navigate("/login"); }}>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/documents" element={<Documents />} />
-        <Route path="/documents/:id" element={<DocumentView />} />
-        <Route path="/classification" element={<Classification />} />
-        <Route path="/search" element={<SemanticSearch />} />
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/cost-saving" element={<CostSavingAgentPage />} />
-        <Route path="/anomalies" element={<AnomaliesPage />} />
-        <Route path="/duplicates" element={<DuplicatesPage />} />
-        {user.role === "admin" && <Route path="/admin" element={<AdminUsers />} />}
-      </Routes>
-    </Layout>
+    <>
+      <BackendWakingBanner />
+      <ToastContainer />
+      {loading ? (
+        <div className="flex h-screen items-center justify-center text-muted">{t("loading")}</div>
+      ) : !user ? (
+        <Login onLogin={(u) => { setUser(u); navigate("/"); }} />
+      ) : (
+        <Layout user={user} onLogout={() => { setToken(null); setUser(null); navigate("/login"); }}>
+          <ErrorBoundary key={location.pathname}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/documents" element={<Documents />} />
+              <Route path="/documents/:id" element={<DocumentView />} />
+              <Route path="/classification" element={<Classification />} />
+              <Route path="/search" element={<SemanticSearch />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/cost-saving" element={<CostSavingAgentPage />} />
+              <Route path="/anomalies" element={<AnomaliesPage />} />
+              <Route path="/duplicates" element={<DuplicatesPage />} />
+              {user.role === "admin" && <Route path="/admin" element={<AdminUsers />} />}
+            </Routes>
+          </ErrorBoundary>
+        </Layout>
+      )}
+    </>
   );
 }

@@ -1,0 +1,23 @@
+{
+  "back": "← Documents",
+  "table": {
+    "description": "Description",
+    "qty": "Qty",
+    "price": "Price",
+    "total": "Total",
+    "supplier": "Supplier",
+    "category": "Category",
+    "unspsc": "UNSPSC",
+    "confidence": "Confidence",
+    "anomaly": "Anomaly"
+  },
+  "save": "Save",
+  "anomalyBadge": "⚠ Anomaly",
+  "okBadge": "✓ OK",
+  "feedbackSent": "Feedback sent",
+  "notCorrect": "Not correct?",
+  "feedbackPlaceholder": "What's wrong with this classification?",
+  "submitFeedback": "Submit feedback",
+  "empty": "No items extracted",
+  "notAvailable": "N/A"
+}

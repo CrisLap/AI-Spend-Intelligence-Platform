@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_ui_language
 from app.models.agent_run import AgentRun
 from app.models.user import User
 from app.schemas.cost_saving import AgentRunOut, AgentRunRequest
@@ -40,9 +40,10 @@ def analyze_cost_saving(
     payload: AgentRunRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    lang: str = Depends(get_ui_language),
 ):
     agent_type = _validate_agent_type(payload.agent_type)
-    run = analyze(payload.goal, user.id, db, agent_type=agent_type)
+    run = analyze(payload.goal, user.id, db, agent_type=agent_type, lang=lang)
     log_action(
         db, user_id=user.id, action="cost_saving_analyze", entity_type="agent_run", entity_id=run.id,
         details={
@@ -60,6 +61,7 @@ def analyze_cost_saving_stream(
     agent_type: str = "cost_saving",
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    lang: str = Depends(get_ui_language),
 ):
     """SSE equivalent of POST /analyze: emits one `event: step` per ReAct
     step as it happens, then a final `event: done` with the persisted run
@@ -74,7 +76,7 @@ def analyze_cost_saving_stream(
 
     def event_source():
         last_chunk = ""
-        for chunk in analyze_stream(goal, user.id, db, agent_type=agent_type):
+        for chunk in analyze_stream(goal, user.id, db, agent_type=agent_type, lang=lang):
             last_chunk = chunk
             yield chunk
         if last_chunk.startswith("event: done"):

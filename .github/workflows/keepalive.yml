@@ -1,0 +1,35 @@
+name: Keep Render backend warm
+
+# Render's free plan sleeps the backend after ~15 min of inactivity (30-60s
+# cold start on the next request - see render.yaml). This workflow pings
+# /health every 10 minutes so the service stays warm for anyone browsing the
+# live demo. Two tradeoffs worth knowing about (documented in README.md too):
+# GitHub auto-disables scheduled workflows after 60 days with no repo
+# activity, and keeping one Render free service alive ~24/7 uses close to
+# the account's whole free instance-hour budget (~750h/month).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Ping backend health endpoint
+        continue-on-error: true
+        env:
+          HEALTH_URL: ${{ vars.RENDER_HEALTH_URL || 'https://ai-spend-intelligence-api.onrender.com/health' }}
+        run: |
+          echo "Pinging $HEALTH_URL"
+          curl --max-time 20 --retry 2 -fsS "$HEALTH_URL" | tee -a "$GITHUB_STEP_SUMMARY"

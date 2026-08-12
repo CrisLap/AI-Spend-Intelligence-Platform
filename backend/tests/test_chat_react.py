@@ -52,3 +52,40 @@ def test_guardrail_blocks_sensitive_input(monkeypatch):
     monkeypatch.setattr(chat_react, "chat", lambda messages: "should not be called")
     reply = chat_react.answer_with_react(message="what is my password?", context=[])
     assert "cannot be processed" in reply
+
+
+# --- answer_with_react_stream(): incremental (SSE) equivalent -----------
+
+
+def test_stream_yields_one_step_per_action_then_a_final_answer(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_chat(messages):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return 'Thought: need more data.\nAction: search_spend["HP toner suppliers"]'
+        return 'Thought: now I know.\nFinal Answer: HP is the main toner supplier.'
+
+    monkeypatch.setattr(chat_react, "chat", fake_chat)
+
+    steps = list(chat_react.answer_with_react_stream(message="Who supplies our toner?", context=[]))
+
+    assert len(steps) == 2
+    action_step, action_final = steps[0]
+    assert action_step.tool == "search_spend"
+    assert action_final is None
+    _, final_answer = steps[1]
+    assert final_answer is not None
+    assert "HP" in final_answer
+
+
+def test_stream_guard_yields_a_single_synthetic_step_with_the_guard_message(monkeypatch):
+    monkeypatch.setattr(chat_react, "chat", lambda messages: "should not be called")
+
+    steps = list(chat_react.answer_with_react_stream(message="what is my password?", context=[]))
+
+    assert len(steps) == 1
+    step_obj, final_answer = steps[0]
+    assert step_obj.tool is None
+    assert final_answer is not None
+    assert "cannot be processed" in final_answer

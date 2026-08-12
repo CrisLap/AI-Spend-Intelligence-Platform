@@ -43,6 +43,17 @@ class ReactTrace:
     final_answer: str = ""
 
 
+def step_to_dict(step: ReactStep) -> dict:
+    return {
+        "index": step.index,
+        "thought": step.thought,
+        "tool": step.tool,
+        "tool_input": step.tool_input,
+        "observation": step.observation,
+        "mode": step.mode,
+    }
+
+
 def format_observations(context: list[dict] | str) -> str:
     if isinstance(context, str):
         return context or "No relevant results found."
@@ -53,8 +64,22 @@ def format_observations(context: list[dict] | str) -> str:
     )
 
 
-def build_system_prompt(role_description: str, tools: list[Tool]) -> str:
+_LANGUAGE_DIRECTIVE = {
+    "en": "Write the content of your Thought and Final Answer in English.",
+    "it": "Scrivi il contenuto di Thought e Final Answer in italiano.",
+}
+
+
+def build_system_prompt(role_description: str, tools: list[Tool], lang: str = "en") -> str:
+    # The Thought:/Action:/Final Answer: protocol keywords below stay fixed
+    # in English always - _ACTION_RE/_FINAL_RE/_THOUGHT_RE parse those exact
+    # literal words, so translating them would break parsing. Only the
+    # directive at the end steers the *content* the model writes after
+    # those keywords - the frontend's AgentStepTimeline re-labels the
+    # keywords themselves with its own translated UI chrome, decoupled from
+    # whatever literal English the raw LLM output actually contains.
     tool_lines = "\n".join(f'  {t.name}["<input>"] - {t.description}' for t in tools)
+    directive = _LANGUAGE_DIRECTIVE.get(lang, _LANGUAGE_DIRECTIVE["en"])
     return (
         f"{role_description}\n\n"
         f"You have the following tool(s) available:\n{tool_lines}\n\n"
@@ -66,7 +91,8 @@ def build_system_prompt(role_description: str, tools: list[Tool]) -> str:
         "Final Answer: <your answer, citing the evidence gathered>\n\n"
         "Only give a Final Answer when the observations gathered so far actually "
         "support it. If nothing relevant was found after searching, say so plainly "
-        "instead of guessing.\n"
+        "instead of guessing.\n\n"
+        f"{directive}\n"
     )
 
 

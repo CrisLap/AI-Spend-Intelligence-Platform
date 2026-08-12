@@ -1,0 +1,14 @@
+{
+  "title": "Spend Classification",
+  "description": "Enter one or more descriptions (one per line) to classify them automatically.",
+  "placeholder": "HP LaserJet Toner\nLegal consulting\nFlight New York-London",
+  "classify": "Classify",
+  "classifying": "Classifying...",
+  "table": {
+    "description": "Description",
+    "category": "Category",
+    "unspsc": "UNSPSC",
+    "confidence": "Confidence",
+    "method": "Method"
+  }
+}

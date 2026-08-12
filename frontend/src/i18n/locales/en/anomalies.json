@@ -1,0 +1,10 @@
+{
+  "title": "Detected Anomalies",
+  "description": "Spend items that deviate significantly from their category average.",
+  "empty": "No anomalies detected.",
+  "supplier": "Supplier:",
+  "price": "Price:",
+  "category": "Category:",
+  "notAvailable": "N/A",
+  "zscore": "z-score: {{value}}"
+}

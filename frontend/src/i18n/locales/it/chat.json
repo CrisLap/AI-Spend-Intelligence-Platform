@@ -1,0 +1,17 @@
+{
+  "title": "AI Chat",
+  "greeting": "Ciao! Chiedimi qualsiasi cosa sulla spesa della tua azienda.",
+  "placeholder": "Fai una domanda sui tuoi documenti...",
+  "send": "Invia",
+  "thinking": "Sto pensando…",
+  "error": "Errore: {{message}}",
+  "handoff": {
+    "message": "Questo sembra un obiettivo per l'agente <b>{{agent}}</b>, non una domanda sui dati. Vuoi eseguirlo?",
+    "openButton": "Apri nel Cost Saving Agent"
+  },
+  "agentTypeLabel": {
+    "cost_saving": "Cost Saving",
+    "forecast": "Forecast",
+    "contract_risk": "Contract Risk"
+  }
+}

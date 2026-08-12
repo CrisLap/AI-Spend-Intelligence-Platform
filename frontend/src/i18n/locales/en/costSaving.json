@@ -1,0 +1,48 @@
+{
+  "title": "Cost Saving Agent",
+  "subtitle": "Three specialized AI agents, built on the same reusable ReAct engine, that analyze real spend data and propose verifiable recommendations.",
+  "agentTypes": {
+    "cost_saving": {
+      "label": "Cost Saving",
+      "description": "Analyzes real spend (suppliers, anomalies, contracts) and proposes verifiable savings opportunities, not made-up numbers.",
+      "presetGoals": ["Find savings opportunities", "Analyze spend variance by supplier"]
+    },
+    "forecast": {
+      "label": "Forecast",
+      "description": "Projects next month's spend from the real historical trend (linear regression).",
+      "presetGoals": ["Forecast next month's spend"]
+    },
+    "contract_risk": {
+      "label": "Contract Risk",
+      "description": "Searches indexed contracts for risky clauses — penalties, exclusivity, missing price caps.",
+      "presetGoals": ["Check contract risks", "Check expiring contracts"]
+    }
+  },
+  "goalPlaceholder": "Describe the goal...",
+  "analyze": "Analyze",
+  "analyzing": "Analyzing...",
+  "error": "Error: {{message}}",
+  "reasoning": "Agent reasoning",
+  "recommendations": "Recommendations",
+  "recommendationsCount": "Recommendations ({{count}})",
+  "noRecommendations": "No opportunities found in the current data.",
+  "history": "History",
+  "timeline": {
+    "empty": "No steps recorded.",
+    "analyzing": "Analyzing...",
+    "thought": "Thought:",
+    "action": "Action:",
+    "mode": {
+      "structured": "tool call",
+      "text_parsed": "ReAct text"
+    }
+  },
+  "card": {
+    "perYearEstimated": "/ estimated per year",
+    "supplier": "Supplier: {{value}}",
+    "category": "Category: {{value}}",
+    "actualSpend": "Actual spend",
+    "forecastSpend": "Forecast",
+    "forecastPoint": "Next month"
+  }
+}

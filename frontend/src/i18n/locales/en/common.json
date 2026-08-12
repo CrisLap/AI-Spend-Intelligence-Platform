@@ -1,0 +1,37 @@
+{
+  "appName": "SpendIntel",
+  "tagline": "AI Spend Intelligence",
+  "nav": {
+    "dashboard": "Dashboard",
+    "documents": "Documents",
+    "classification": "Classification",
+    "search": "Search",
+    "chat": "Chat",
+    "costSaving": "Cost Saving Agent",
+    "anomalies": "Anomalies",
+    "duplicates": "Duplicates",
+    "admin": "Admin"
+  },
+  "logout": "Logout",
+  "loading": "Loading...",
+  "loadMore": "Load more",
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm"
+  },
+  "backendWaking": "Waking up the server — the free tier sleeps after inactivity, the first request can take up to a minute…",
+  "language": {
+    "en": "EN",
+    "it": "IT"
+  },
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "errorBoundary": {
+    "title": "Something went wrong on this page.",
+    "description": "An unexpected error occurred. You can keep using the rest of the app from the sidebar, or reload this page.",
+    "reload": "Reload"
+  },
+  "retry": "Retry"
+}

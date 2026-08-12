@@ -1,0 +1,16 @@
+{
+  "title": "Dashboard",
+  "loadingDashboard": "Caricamento dashboard...",
+  "loadingError": "Errore di caricamento",
+  "kpi": {
+    "totalSpend": "Spesa totale",
+    "items": "Voci",
+    "documents": "Documenti",
+    "anomalies": "Anomalie",
+    "duplicates": "Duplicati"
+  },
+  "spendByCategory": "Spesa per categoria",
+  "monthlySpend": "Spesa mensile",
+  "topSuppliers": "Principali fornitori",
+  "topCategories": "Principali categorie"
+}

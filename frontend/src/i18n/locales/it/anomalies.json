@@ -1,0 +1,10 @@
+{
+  "title": "Anomalie rilevate",
+  "description": "Voci di spesa che si discostano in modo significativo dalla media della loro categoria.",
+  "empty": "Nessuna anomalia rilevata.",
+  "supplier": "Fornitore:",
+  "price": "Prezzo:",
+  "category": "Categoria:",
+  "notAvailable": "N/D",
+  "zscore": "z-score: {{value}}"
+}

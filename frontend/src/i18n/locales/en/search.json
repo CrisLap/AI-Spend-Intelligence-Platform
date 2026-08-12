@@ -1,0 +1,7 @@
+{
+  "title": "Semantic Search",
+  "description": "Search across all documents and spend items using natural language.",
+  "placeholder": "e.g. Find all HP toner invoices",
+  "search": "Search",
+  "resultsCount": "{{count}} results"
+}
