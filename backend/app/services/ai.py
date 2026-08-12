@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 import httpx
 import numpy as np
 from numpy.linalg import norm
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Fixed vector size stored in Qdrant. Real embedding models (e.g. Ollama's
 # nomic-embed-text, 768-dim) and the offline hash fallback can produce
@@ -63,6 +67,7 @@ def _groq_chat(messages: list[dict]) -> str | None:
         choices = r.json().get("choices", [])
         return choices[0]["message"]["content"] if choices else None
     except Exception:
+        logger.exception("Groq chat call failed, falling back to offline reply")
         return None
 
 
@@ -83,6 +88,30 @@ def _groq_chat_with_tools(messages: list[dict], tools: list[dict]) -> dict | Non
         message = choices[0]["message"]
         return {"content": message.get("content"), "tool_calls": message.get("tool_calls")}
     except Exception:
+        logger.exception("Groq structured tool-call chat failed, falling back to text parsing/offline reply")
+        return None
+
+
+def _jina_embed(text: str) -> list[float] | None:
+    if not settings.jina_api_key:
+        return None
+    try:
+        r = httpx.post(
+            "https://api.jina.ai/v1/embeddings",
+            headers={"Authorization": f"Bearer {settings.jina_api_key}"},
+            json={
+                "model": settings.jina_embed_model,
+                "task": "text-matching",
+                "dimensions": EMBEDDING_DIM,
+                "input": [text],
+            },
+            timeout=settings.jina_timeout,
+        )
+        r.raise_for_status()
+        data = r.json().get("data", [])
+        return data[0]["embedding"] if data else None
+    except Exception:
+        logger.exception("Jina embeddings call failed, falling back to offline hash embedding")
         return None
 
 
@@ -112,6 +141,9 @@ def chat_with_tools(messages: list[dict], tools: list[dict]) -> dict:
 
 def embed_text(text: str) -> np.ndarray:
     vec = _ollama_embed(text)
+    if vec is not None:
+        return _to_fixed_dim(np.array(vec, dtype=np.float32))
+    vec = _jina_embed(text)
     if vec is not None:
         return _to_fixed_dim(np.array(vec, dtype=np.float32))
     return _to_fixed_dim(_hash_embed(text, dim=EMBEDDING_DIM))

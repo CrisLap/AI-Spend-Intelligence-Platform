@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     groq_chat_model: str = "llama-3.1-8b-instant"
     groq_timeout: int = 30
 
+    jina_api_key: str | None = None
+    jina_embed_model: str = "jina-embeddings-v3"
+    jina_timeout: int = 30
+
     upload_dir: str = "./data/uploads"
     max_upload_mb: int = 50
 
