@@ -259,7 +259,7 @@ in `.env.example`.
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Model for embeddings |
 | `OLLAMA_TIMEOUT` | `30` | Seconds before falling back to Groq (or offline) when Ollama doesn't respond |
 | `GROQ_API_KEY` | _(unset)_ | Enables the Groq cloud fallback when Ollama is unreachable |
-| `GROQ_CHAT_MODEL` | `llama-3.1-8b-instant` | Groq model used for the fallback |
+| `GROQ_CHAT_MODEL` | `openai/gpt-oss-20b` | Groq model used for the fallback |
 | `GROQ_TIMEOUT` | `30` | Seconds before falling back to the offline deterministic reply |
 | `JINA_API_KEY` | _(unset)_ | Enables the Jina AI cloud embeddings fallback when Ollama is unreachable |
 | `JINA_EMBED_MODEL` | `jina-embeddings-v3` | Jina model used for the embeddings fallback |

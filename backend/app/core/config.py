@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ollama_timeout: int = 30
 
     groq_api_key: str | None = None
-    groq_chat_model: str = "llama-3.1-8b-instant"
+    groq_chat_model: str = "openai/gpt-oss-20b"
     groq_timeout: int = 30
 
     jina_api_key: str | None = None
