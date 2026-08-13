@@ -164,6 +164,8 @@ def answer_question(message: str, session_id: int | None, user_id: int, lang: st
             retrieve_fn=lambda q: _retrieve_context(q, user_id=user_id),
             history_summary=summary_text or None,
             lang=lang,
+            db=db,
+            user_id=user_id,
         )
 
         msg = ChatMessage(
@@ -198,6 +200,8 @@ def answer_question_stream(message: str, session_id: int | None, user_id: int, l
             retrieve_fn=lambda q: _retrieve_context(q, user_id=user_id),
             history_summary=summary_text or None,
             lang=lang,
+            db=db,
+            user_id=user_id,
         ):
             yield f"event: step\ndata: {json.dumps(step_to_dict(step_obj), ensure_ascii=False)}\n\n"
             if final_answer is not None:

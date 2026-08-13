@@ -77,6 +77,43 @@ def _contract_search_tool(user_id: int, db: Session):
     return _call
 
 
+def _top_expenses_tool(user_id: int, db: Session):
+    def _call(query: str) -> str:
+        q = (query or "").strip()
+        n = int(q) if q.isdigit() else 5
+        n = max(1, min(n, 20))
+        rows = (
+            db.query(LineItem, Document.original_name)
+            .join(Document, LineItem.document_id == Document.id)
+            .filter(Document.user_id == user_id)
+            .order_by(LineItem.total.desc())
+            .limit(n)
+            .all()
+        )
+        if not rows:
+            return "No line items found for this user."
+        return "\n".join(
+            f"€{item.total:,.2f} - {item.description} - {item.supplier or 'unknown supplier'} "
+            f"(category: {item.category_label or 'n/a'}, source: {doc_name}, invoice: {item.invoice_number or 'n/a'})"
+            for item, doc_name in rows
+        )
+
+    return _call
+
+
+def top_expenses_tool_for(user_id: int, db: Session) -> Tool:
+    return Tool(
+        name="top_expenses",
+        description=(
+            "get the single line items with the highest total spend, sorted "
+            "descending by amount - a real ranking over all records, not a "
+            'semantic search. Use this for "highest/biggest/most expensive" '
+            'questions. Input: how many to return (e.g. "5"); defaults to 5.'
+        ),
+        fn=_top_expenses_tool(user_id, db),
+    )
+
+
 def _forecast_tool(user_id: int, db: Session):
     def _call(_query: str) -> str:
         result = forecast_next_month_spend(user_id=user_id, db=db)

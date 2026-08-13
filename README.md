@@ -68,14 +68,14 @@ numbers.
 | 1 | Document Intelligence | OCR (Tesseract), PDF/Excel/CSV/image parsing, LLM extraction → structured JSON |
 | 2 | Spend Classification | 3-tier classification (rule-based → embedding similarity → LLM) against a UNSPSC-inspired custom taxonomy |
 | 3 | Semantic Search | Natural-language vector search across all spend line items |
-| 4 | AI Chat | Retrieval-Augmented Generation (RAG) chat with a real ReAct loop (the model can issue further `search_spend` searches before answering), source citations, conversation memory (trimming + summarization), guardrails |
+| 4 | AI Chat | Retrieval-Augmented Generation (RAG) chat with a real ReAct loop over two tools - semantic `search_spend` for open-ended lookups, and a deterministic `top_expenses` ranking for "highest/biggest" questions a similarity search can't reliably answer - source citations, conversation memory (trimming + summarization), guardrails |
 | 5 | Duplicate Detection | Exact (supplier+invoice+amount) + semantic (embedding similarity) matching |
 | 6 | Anomaly Detection | Per-category z-score outlier detection on price, quantity, and new-supplier alerts |
 | 7 | Dashboard | Real-time charts: spend by category/month, top suppliers, KPI cards |
 | 8 | Feedback Loop | User corrections stored → real-time classifier retraining via `POST /classification/retrain` |
 | 9 | REST API | Complete OpenAPI-documented endpoints for every module |
 | 10 | User Management | JWT auth, RBAC (Admin/Buyer/Finance), audit logging |
-| 11 | Cost Saving Agent | Goal-driven multi-tool agent (spend overview, supplier variance, anomaly scan, contract clause search) built on a generic, reusable ReAct engine; a deterministic Recommendation Engine turns real query results into cited, estimated-saving opportunities; every run is persisted with a full audit trail |
+| 11 | Cost Saving Agent | Goal-driven multi-tool agent (spend overview, supplier variance, anomaly scan, contract clause search) built on a generic, reusable ReAct engine; a deterministic Recommendation Engine turns real query results into cited, estimated-saving opportunities; every run is persisted with a full audit trail; guardrails (input validation, output sanitization) apply the same as the Chat |
 | 12 | Contract Intelligence | Contract full text is chunked and semantically indexed (separate Qdrant collection) so clauses - auto-renewal, penalties - are searchable, not just line items |
 | 13 | Forecast Agent | Same agent framework, one tool: projects next month's total spend with a linear-trend fit over real monthly history (`agent_type=forecast`) |
 | 14 | Contract Risk Agent | Same agent framework and contract-clause RAG as the Cost Saving Agent, searched for risk language instead - penalties, exclusivity, missing price caps (`agent_type=contract_risk`) |
@@ -85,9 +85,11 @@ numbers.
 
 A few implementation details that aren't obvious from the module table above:
 
-- **Structured function-calling.** `chat_with_tools()` in `app/services/ai.py` asks Groq's OpenAI-compatible endpoint for structured `tool_calls` (via `tools=`) whenever Ollama is unreachable; the Cost Saving/Forecast/Contract Risk agents run on this path (`ReactStep.mode == "structured"`), while the single-tool Chat RAG deliberately keeps the original text-parsed ReAct format (`mode == "text_parsed"`) - both modes are visible in the agent's step trace.
+- **Structured function-calling everywhere.** `chat_with_tools()` in `app/services/ai.py` asks Groq's OpenAI-compatible endpoint for structured `tool_calls` (via `tools=`) whenever Ollama is unreachable; the Chat RAG and the Cost Saving/Forecast/Contract Risk agents all run on this path (`ReactStep.mode == "structured"`). Chat used to deliberately keep the plain text-parsed ReAct format instead (a single tool "shouldn't need it"), but agentic Groq models like `openai/gpt-oss-20b` attempt a real structured tool call for a described tool regardless of how many tools are registered - without a matching `tools=` schema in the request, Groq rejects the reply outright with a 400 `tool_use_failed`, which made every Groq-served chat reply fail straight through to the offline fallback. Text-parsed mode (`mode == "text_parsed"`) remains the fallback for turns that don't return a structured call (e.g. Ollama, which is never asked for one) - both modes are visible in the step trace.
 - **One ReAct loop, two consumers.** `GET /cost-saving/analyze/stream` emits each ReAct step live as it happens instead of the whole trace at once. `react_engine.py`'s loop is a generator (`iter_react_steps()`) consumed both by this streaming endpoint and by the batch `run_react()`, so there is a single implementation of the loop, not two. The frontend reads the stream via `fetch()` + `ReadableStream` rather than `EventSource`, specifically because `EventSource` can't send the custom `Authorization: Bearer` header this app's auth relies on everywhere else, and a query-string token would leak into browser history/server logs.
 - **Shared agent framework, not three stacks.** The Cost Saving, Forecast, and Contract Risk agents reuse the same `react_engine.py` + tool-registry pattern - a new agent is a new tool registry, system prompt, and recommendation function, not new infrastructure. All three share one table (`AgentRun.agent_type`), one endpoint (`agent_type` param), and one frontend page (a type selector), instead of three separate REST/UI stacks.
+- **Superlatives need a real ranking, not a similarity score.** `search_spend` only surfaces documents that are textually similar to the query, so "what was our highest expense" can silently miss a bigger item that just didn't match the query text - yet the model would still answer with full confidence. The Chat's system prompt now explicitly tells it to use the deterministic `top_expenses` tool (`agents/tools.py`, `ORDER BY total DESC`) for any highest/biggest/most-expensive question instead of inferring a superlative from `search_spend` hits alone.
+- **Guardrails apply everywhere an LLM sees free-text user input**, not just the Chat: `validate_input`/`sanitize_output` (`guardrails.py`) now guard the Cost Saving/Forecast/Contract Risk agents' `goal` too - a blocked goal skips the LLM call entirely, though the deterministic Recommendation Engine still runs (it depends on `agent_type` and real data, never on the goal text).
 
 ## Quick Start
 
@@ -282,7 +284,7 @@ cd frontend
 npm test
 ```
 
-Backend: 129 pytest tests across 26 files (`backend/tests/`). Frontend:
+Backend: 143 pytest tests across 26 files (`backend/tests/`). Frontend:
 Vitest + React Testing Library, covering `AgentStepTimeline` and
 `RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
 
@@ -316,7 +318,7 @@ backend/
     services/          → Business logic
       ai.py                  → Ollama chat & embeddings (fixed-dim, hash fallback offline)
       analytics.py           → Spend overview, supplier variance, dashboard aggregations, forecasting
-      chat_react.py          → thin wrapper: single-tool ReAct chat on top of agents/react_engine.py
+      chat_react.py          → thin wrapper: two-tool (search_spend, top_expenses) ReAct chat on top of agents/react_engine.py
       chat_service.py        → RAG pipeline with memory trimming
       classifier.py          → 3-tier classification (rule → embedding → LLM)
       document_intelligence.py → OCR/parsing/extraction pipeline for uploaded documents
@@ -330,13 +332,13 @@ backend/
       assistant_router.py    → intent classifier for POST /assistant (rule-based tiers -> LLM fallback)
       agents/
         react_engine.py      → generic multi-tool ReAct loop (Thought/Action/Observation)
-        tools.py              → Cost Saving Agent's tool registry, wrapping existing services
+        tools.py              → shared tool registry (spend overview, variance, anomalies, contract search, top expenses) wrapping existing services, used by the Cost Saving Agent and by chat_react.py
       anomalies.py           → Price, quantity, supplier anomaly detection
       guardrails.py          → Input validation & output sanitization
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
   scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
-  tests/               → 129 pytest tests (26 files)
+  tests/               → 143 pytest tests (26 files)
   Dockerfile
 frontend/
   src/

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 
+from sqlalchemy.orm import Session
+
 from app.services.agents.react_engine import (
     ReactStep,
     Tool,
@@ -10,6 +12,7 @@ from app.services.agents.react_engine import (
     iter_react_steps,
     run_react,
 )
+from app.services.agents.tools import top_expenses_tool_for
 from app.services.ai import chat, chat_with_tools
 from app.services.guardrails import sanitize_output, validate_input
 
@@ -17,7 +20,15 @@ _MAX_REACT_STEPS = 3
 
 _ROLE_DESCRIPTION = (
     "You are the AI Spend Intelligence assistant. You answer questions about "
-    "company spend data using a ReAct loop (Thought / Action / Observation)."
+    "company spend data using a ReAct loop (Thought / Action / Observation). "
+    "search_spend is a semantic search - it only surfaces documents that are "
+    "textually similar to your query, not a ranking of the full dataset. "
+    "Never phrase an answer as a superlative (highest, most expensive, "
+    "biggest, top) based on search_spend results alone, since a bigger item "
+    "may simply not have matched the query text. For any question about the "
+    "highest/biggest/most expensive spend, use the top_expenses tool instead "
+    "- it is a real ranking over every record - and use search_spend only "
+    "for open-ended lookups (a supplier, a product, a topic)."
 )
 
 
@@ -28,6 +39,8 @@ def _build_react_call(
     retrieve_fn: Callable[[str], list[dict]] | None,
     history_summary: str | None,
     lang: str,
+    db: Session | None = None,
+    user_id: int | None = None,
 ) -> dict:
     """Shared setup between answer_with_react() (batch) and
     answer_with_react_stream() (SSE) - both run the identical ReAct
@@ -42,7 +55,7 @@ def _build_react_call(
             for m in conversation_history[-6:]
         )
 
-    tool = Tool(
+    search_tool = Tool(
         name="search_spend",
         description=(
             "semantic search over invoices/orders/contracts, returns the "
@@ -50,11 +63,16 @@ def _build_react_call(
         ),
         fn=lambda query: retrieve_fn(query) if retrieve_fn else [],
     )
+    # top_expenses needs direct DB access (a real ORDER BY total DESC query,
+    # not a semantic search), so it's only available when the caller passes
+    # db/user_id - callers/tests that don't need it (e.g. unit tests driving
+    # the ReAct loop in isolation) keep the single-tool set unchanged.
+    tools = [search_tool, top_expenses_tool_for(user_id, db)] if db is not None and user_id is not None else [search_tool]
     return {
         "chat_fn": chat,
-        "system_prompt": build_system_prompt(_ROLE_DESCRIPTION, [tool], lang=lang),
+        "system_prompt": build_system_prompt(_ROLE_DESCRIPTION, tools, lang=lang),
         "task_prompt": f"## Conversation History\n{history_text or 'None yet.'}\n\n## Question\n{message}",
-        "tools": [tool],
+        "tools": tools,
         "initial_observations": format_observations(context),
         "max_steps": _MAX_REACT_STEPS,
         # Prefer native structured tool calls (Groq's `tools=`) over
@@ -78,6 +96,8 @@ def answer_with_react(
     retrieve_fn: Callable[[str], list[dict]] | None = None,
     history_summary: str | None = None,
     lang: str = "en",
+    db: Session | None = None,
+    user_id: int | None = None,
 ) -> str:
     """Runs a genuine ReAct loop: the model can issue further search_spend
     actions (via retrieve_fn) before committing to a Final Answer, instead of
@@ -87,12 +107,18 @@ def answer_with_react(
     app.services.agents.react_engine (also used by the Cost Saving Agent) -
     kept as its own function because chat_service.py depends on this exact
     signature and chat_service tests monkeypatch this module's `chat`.
+
+    db/user_id are optional and only needed to enable the top_expenses tool
+    (see _build_react_call) - omit them to keep the single-tool search_spend
+    behavior, e.g. in tests that don't need a real database.
     """
     guard = validate_input(message, lang=lang)
     if guard:
         return guard
 
-    trace = run_react(**_build_react_call(message, context, conversation_history, retrieve_fn, history_summary, lang))
+    trace = run_react(
+        **_build_react_call(message, context, conversation_history, retrieve_fn, history_summary, lang, db, user_id)
+    )
     return sanitize_output(trace.final_answer)
 
 
@@ -103,6 +129,8 @@ def answer_with_react_stream(
     retrieve_fn: Callable[[str], list[dict]] | None = None,
     history_summary: str | None = None,
     lang: str = "en",
+    db: Session | None = None,
+    user_id: int | None = None,
 ) -> Iterator[tuple[ReactStep, str | None]]:
     """Same pipeline as answer_with_react(), but yields each ReAct step as it
     happens instead of returning only the final answer - the chat
@@ -116,7 +144,7 @@ def answer_with_react_stream(
         return
 
     for step_obj, final_answer in iter_react_steps(
-        **_build_react_call(message, context, conversation_history, retrieve_fn, history_summary, lang)
+        **_build_react_call(message, context, conversation_history, retrieve_fn, history_summary, lang, db, user_id)
     ):
         if final_answer is not None:
             final_answer = sanitize_output(final_answer)

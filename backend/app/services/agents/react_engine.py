@@ -69,6 +69,17 @@ _LANGUAGE_DIRECTIVE = {
     "it": "Scrivi il contenuto di Thought e Final Answer in italiano.",
 }
 
+# Both chat and agent replies are rendered through the same markdown
+# component (frontend/src/components/Markdown.tsx), so malformed markdown
+# from any model shows up as literal stray asterisks to the end user - e.g.
+# "** text" (space right after the marker) is not valid CommonMark emphasis
+# and renders as literal "**". Worth stating explicitly since this has
+# actually happened with openai/gpt-oss-20b on Groq.
+_MARKDOWN_DIRECTIVE = (
+    "If you use markdown emphasis (**bold**, *italic*), never put a space "
+    "between the marker and the text, and always close what you open."
+)
+
 
 def build_system_prompt(role_description: str, tools: list[Tool], lang: str = "en") -> str:
     # The Thought:/Action:/Final Answer: protocol keywords below stay fixed
@@ -92,6 +103,7 @@ def build_system_prompt(role_description: str, tools: list[Tool], lang: str = "e
         "Only give a Final Answer when the observations gathered so far actually "
         "support it. If nothing relevant was found after searching, say so plainly "
         "instead of guessing.\n\n"
+        f"{_MARKDOWN_DIRECTIVE}\n\n"
         f"{directive}\n"
     )
 

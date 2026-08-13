@@ -1,6 +1,27 @@
 from __future__ import annotations
 
+from app.core.security import hash_password
+from app.models.document import Document, LineItem
+from app.models.user import User
 from app.services import chat_react
+from app.services.agents.tools import top_expenses_tool_for
+
+
+def _make_user(db, email: str) -> User:
+    u = User(email=email, hashed_password=hash_password("x"), full_name="U", role="buyer")
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    return u
+
+
+def _make_item(db, owner: User, description: str, supplier: str, total: float) -> None:
+    doc = Document(user_id=owner.id, filename="f.csv", original_name="f.csv", file_path="/tmp/f.csv")
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    db.add(LineItem(document_id=doc.id, description=description, supplier=supplier, total=total))
+    db.commit()
 
 
 def test_direct_final_answer(monkeypatch):
@@ -110,3 +131,58 @@ def test_stream_guard_yields_a_single_synthetic_step_with_the_guard_message(monk
     assert step_obj.tool is None
     assert final_answer is not None
     assert "cannot be processed" in final_answer
+
+
+# --- top_expenses: real ranking tool, not semantic search ---------------
+
+
+def test_top_expenses_tool_ranks_by_total_descending(db):
+    """search_spend can only surface items textually similar to the query,
+    so "what was our highest expense" needs a real ORDER BY total DESC
+    query instead - this is what led the chat to confidently name the wrong
+    (or an unverified) top expense before this tool existed."""
+    owner = _make_user(db, "topexpenses@test.com")
+    _make_item(db, owner, "Toner", "Office Depot", 150.0)
+    _make_item(db, owner, "Due diligence", "Deloitte Consulting", 12000.0)
+    _make_item(db, owner, "Laptop", "Dell", 2000.0)
+
+    result = top_expenses_tool_for(owner.id, db).fn("2")
+
+    lines = result.splitlines()
+    assert len(lines) == 2
+    assert "Deloitte Consulting" in lines[0] and "€12,000.00" in lines[0]
+    assert "Dell" in lines[1]
+
+
+def test_build_react_call_only_adds_top_expenses_tool_when_db_and_user_id_given(db):
+    without_db = chat_react._build_react_call("q", [], None, None, None, "en")
+    assert [t.name for t in without_db["tools"]] == ["search_spend"]
+
+    with_db = chat_react._build_react_call("q", [], None, None, None, "en", db, 1)
+    assert [t.name for t in with_db["tools"]] == ["search_spend", "top_expenses"]
+
+
+def test_react_loop_can_call_top_expenses_via_structured_tool_call(db, monkeypatch):
+    owner = _make_user(db, "toprct@test.com")
+    _make_item(db, owner, "Due diligence", "Deloitte Consulting", 12000.0)
+    _make_item(db, owner, "Toner", "Office Depot", 150.0)
+
+    calls = {"n": 0}
+
+    def fake_chat_with_tools(messages, tools):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {
+                "content": None,
+                "tool_calls": [{"function": {"name": "top_expenses", "arguments": '{"input": "1"}'}}],
+            }
+        return {"content": "Thought: found it.\nFinal Answer: Deloitte Consulting, €12,000.00.", "tool_calls": None}
+
+    monkeypatch.setattr(chat_react, "chat_with_tools", fake_chat_with_tools)
+
+    reply = chat_react.answer_with_react(
+        message="What was our highest expense?", context=[], db=db, user_id=owner.id,
+    )
+
+    assert calls["n"] == 2
+    assert "Deloitte" in reply
