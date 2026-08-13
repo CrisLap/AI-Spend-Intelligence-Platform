@@ -55,6 +55,7 @@ def _ollama_chat(messages: list[dict]) -> str | None:
 
 def _groq_chat(messages: list[dict]) -> str | None:
     if not settings.groq_api_key:
+        logger.warning("Groq chat skipped: GROQ_API_KEY is not configured")
         return None
     try:
         r = httpx.post(
@@ -66,6 +67,12 @@ def _groq_chat(messages: list[dict]) -> str | None:
         r.raise_for_status()
         choices = r.json().get("choices", [])
         return choices[0]["message"]["content"] if choices else None
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "Groq chat call failed with status %s, falling back to offline reply: %s",
+            e.response.status_code, e.response.text,
+        )
+        return None
     except Exception:
         logger.exception("Groq chat call failed, falling back to offline reply")
         return None
@@ -73,6 +80,7 @@ def _groq_chat(messages: list[dict]) -> str | None:
 
 def _groq_chat_with_tools(messages: list[dict], tools: list[dict]) -> dict | None:
     if not settings.groq_api_key:
+        logger.warning("Groq structured tool-call chat skipped: GROQ_API_KEY is not configured")
         return None
     try:
         r = httpx.post(
@@ -87,6 +95,12 @@ def _groq_chat_with_tools(messages: list[dict], tools: list[dict]) -> dict | Non
             return None
         message = choices[0]["message"]
         return {"content": message.get("content"), "tool_calls": message.get("tool_calls")}
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "Groq structured tool-call chat failed with status %s, falling back to text parsing/offline reply: %s",
+            e.response.status_code, e.response.text,
+        )
+        return None
     except Exception:
         logger.exception("Groq structured tool-call chat failed, falling back to text parsing/offline reply")
         return None
