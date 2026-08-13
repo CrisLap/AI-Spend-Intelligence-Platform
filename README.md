@@ -81,6 +81,14 @@ numbers.
 | 14 | Contract Risk Agent | Same agent framework and contract-clause RAG as the Cost Saving Agent, searched for risk language instead - penalties, exclusivity, missing price caps (`agent_type=contract_risk`) |
 | 15 | AI Assistant (intent router) | `POST /assistant` is a single entry point that classifies a message as a spend question or an agent goal (rule-based keyword tiers, LLM fallback) and routes it: a spend question is answered by the RAG chat inline, a cost-saving/forecast/contract-risk goal comes back as a handoff suggestion the Chat page uses to jump to the Cost Saving Agent page, prefilled and ready to run |
 
+## Design Notes
+
+A few implementation details that aren't obvious from the module table above:
+
+- **Structured function-calling.** `chat_with_tools()` in `app/services/ai.py` asks Groq's OpenAI-compatible endpoint for structured `tool_calls` (via `tools=`) whenever Ollama is unreachable; the Cost Saving/Forecast/Contract Risk agents run on this path (`ReactStep.mode == "structured"`), while the single-tool Chat RAG deliberately keeps the original text-parsed ReAct format (`mode == "text_parsed"`) - both modes are visible in the agent's step trace.
+- **One ReAct loop, two consumers.** `GET /cost-saving/analyze/stream` emits each ReAct step live as it happens instead of the whole trace at once. `react_engine.py`'s loop is a generator (`iter_react_steps()`) consumed both by this streaming endpoint and by the batch `run_react()`, so there is a single implementation of the loop, not two. The frontend reads the stream via `fetch()` + `ReadableStream` rather than `EventSource`, specifically because `EventSource` can't send the custom `Authorization: Bearer` header this app's auth relies on everywhere else, and a query-string token would leak into browser history/server logs.
+- **Shared agent framework, not three stacks.** The Cost Saving, Forecast, and Contract Risk agents reuse the same `react_engine.py` + tool-registry pattern - a new agent is a new tool registry, system prompt, and recommendation function, not new infrastructure. All three share one table (`AgentRun.agent_type`), one endpoint (`agent_type` param), and one frontend page (a type selector), instead of three separate REST/UI stacks.
+
 ## Quick Start
 
 ### Prerequisites
@@ -211,6 +219,7 @@ in `.env.example`.
 | GET | `/auth/me` | Current user profile |
 | GET | `/users` | List users (admin only) |
 | PATCH | `/users/{id}/role` | Change a user's role (admin only) |
+| DELETE | `/users/{id}` | Delete a user (admin only) |
 | GET | `/users/{id}/audit-log` | View a user's audit trail (admin only) |
 | POST | `/documents/upload` | Upload a document (PDF/CSV/Excel/Image) |
 | POST | `/documents/{id}/process` | Parse, classify, detect anomalies/duplicates |
@@ -218,6 +227,7 @@ in `.env.example`.
 | GET | `/documents/{id}` | Get document with line items |
 | DELETE | `/documents/{id}` | Delete a document |
 | POST | `/classification` | Classify descriptions via API |
+| POST | `/classification/single` | Classify a single description |
 | GET | `/search?q=...` | Semantic search |
 | PATCH | `/classification/line-items/{id}` | Correct a classification (auto-seeds feedback) |
 | POST | `/classification/retrain` | Bulk-retrain classifier from user feedback (admin/finance only) |
@@ -234,6 +244,7 @@ in `.env.example`.
 | GET | `/cost-saving/history` | List past agent runs for the current user (optionally filtered by `agent_type`) |
 | GET | `/cost-saving/history/{id}` | Get a single past agent run |
 | POST | `/assistant` | Single intent-routed entry point: a spend question is answered inline (same shape as `/chat`); a cost-saving/forecast/contract-risk goal returns a `suggestion` (`agent_type` + `goal`) instead of running the agent inline |
+| GET | `/assistant/stream` | Same intent routing as above, streamed live as `text/event-stream` |
 
 ## Environment Variables
 
@@ -271,6 +282,10 @@ cd frontend
 npm test
 ```
 
+Backend: 129 pytest tests across 26 files (`backend/tests/`). Frontend:
+Vitest + React Testing Library, covering `AgentStepTimeline` and
+`RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
+
 ## RAG Evaluation
 
 ```bash
@@ -286,6 +301,7 @@ Measures retrieval precision, answer relevance, and faithfulness against a curat
 |----------|---------|------|
 | `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), frontend typecheck (tsc), frontend build (vite), frontend tests (vitest) |
 | `cd.yml` | Push to `main` | Build Docker image → push to GHCR → deploy to Render |
+| `keepalive.yml` | Schedule (every 10 min) + manual dispatch | Ping `/health` on the deployed Render API to keep the free-tier service warm |
 
 ## Project Structure
 
@@ -299,9 +315,15 @@ backend/
     schemas/           → Pydantic v2 request/response schemas
     services/          → Business logic
       ai.py                  → Ollama chat & embeddings (fixed-dim, hash fallback offline)
+      analytics.py           → Spend overview, supplier variance, dashboard aggregations, forecasting
       chat_react.py          → thin wrapper: single-tool ReAct chat on top of agents/react_engine.py
       chat_service.py        → RAG pipeline with memory trimming
       classifier.py          → 3-tier classification (rule → embedding → LLM)
+      document_intelligence.py → OCR/parsing/extraction pipeline for uploaded documents
+      duplicates.py          → Exact + semantic duplicate detection
+      feedback_service.py    → User feedback capture and retraining triggers
+      i18n_strings.py        → User-facing string localization
+      search.py              → Semantic search over indexed spend line items
       vector_store.py        → Qdrant integration (line-item + contract-chunk collections)
       contract_intelligence.py → contract text chunking, embedding, semantic clause search
       cost_saving_agent.py   → Cost Saving / Forecast / Contract Risk agents: runs the ReAct loop + the Recommendation Engine (agent_type param)
@@ -314,26 +336,20 @@ backend/
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
   scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
-  tests/               → 132 pytest tests
+  tests/               → 129 pytest tests (26 files)
   Dockerfile
 frontend/
   src/
-    pages/             → 11 pages (Dashboard, Documents, Chat, Cost Saving Agent, Admin, etc.)
-    components/        → Layout shell, AgentStepTimeline, RecommendationCard
+    pages/             → Login, Dashboard, Documents, DocumentView, Classification,
+                          SemanticSearch, ChatPage, CostSavingAgentPage, AnomaliesPage,
+                          DuplicatesPage, AdminUsers (11 pages)
+    components/        → Layout, AgentStepTimeline, RecommendationCard, ForecastChart,
+                          BackendWakingBanner, ConfirmDialog, ErrorBoundary, InlineError,
+                          Markdown, Skeleton, TableScroll, ToastContainer
+    hooks/             → useBackendWaking, useDocumentTitle
     api.ts             → API client
   vercel.json          → Vercel deploy config
 ```
-
-## Roadmap
-
-Shipped in Fase 2 so far:
-- **Native function-calling.** `app/services/ai.py::chat_with_tools()` asks Groq's OpenAI-compatible endpoint for structured `tool_calls` (via `tools=`) once Ollama is unreachable; the Cost Saving Agent runs on this path (`ReactStep.mode == "structured"`), while the single-tool Chat RAG deliberately keeps the original text-parsed ReAct format (`mode == "text_parsed"`) - both are visible in the agent's step trace.
-- **Frontend test suite.** Vitest + React Testing Library cover `AgentStepTimeline` and `RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
-- **Live SSE streaming.** `GET /cost-saving/analyze/stream` emits each ReAct step as it happens instead of the whole trace at once; `react_engine.py`'s loop is a generator (`iter_react_steps()`) that both this and the batch `run_react()` consume, so there's one implementation of the loop, not two. The frontend reads it via `fetch()` + `ReadableStream` rather than `EventSource`, specifically so the `Authorization: Bearer` header this app's auth relies on everywhere else still works - `EventSource` can't send custom headers, and a query-string token would leak into browser history/server logs.
-- **Additional specialized agents.** The Forecast and Contract Risk agents (modules 13-14 above) reuse the same `react_engine.py` + tool-registry pattern as the Cost Saving Agent - a new agent is a new tool registry, system prompt and recommendation function, not new infrastructure. All three share one table (`AgentRun.agent_type`), one endpoint (`agent_type` param) and one frontend page (a type selector), instead of three separate REST/UI stacks.
-- **Unified "AI Assistant" intent router.** `POST /assistant` (module 15 above) classifies a message with the same rule-then-LLM tiering style as the UNSPSC classifier, then either answers it inline (spend question) or hands it off (cost-saving/forecast/contract-risk goal). The frontend deliberately keeps Chat and the Cost Saving Agent as two separate pages rather than merging their very different UIs (a chat thread vs. a live multi-step agent trace) into one component - Chat instead renders a "this looks like an agent goal" suggestion card that navigates to the Cost Saving Agent page with the goal and agent type prefilled.
-
-Fase 2 is now complete end-to-end - every item planned for it has shipped and been verified (automated tests + manual browser runs), not just the MVP.
 
 ## License
 
