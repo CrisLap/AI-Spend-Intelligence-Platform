@@ -6,11 +6,19 @@ from collections.abc import Iterator
 from sqlalchemy.orm import Session
 
 from app.models.agent_run import AgentRun
-from app.services.agents.react_engine import ReactTrace, build_system_prompt, iter_react_steps, run_react, step_to_dict
+from app.services.agents.react_engine import (
+    ReactStep,
+    ReactTrace,
+    build_system_prompt,
+    iter_react_steps,
+    run_react,
+    step_to_dict,
+)
 from app.services.agents.tools import build_contract_risk_tools, build_forecast_tools, build_tools
 from app.services.ai import chat, chat_with_tools
 from app.services.analytics import forecast_next_month_spend, get_supplier_variance
 from app.services.contract_intelligence import search_contracts
+from app.services.guardrails import sanitize_output, validate_input
 from app.services.i18n_strings import translate as _t
 
 _MAX_STEPS = 4
@@ -270,10 +278,8 @@ def _react_kwargs(goal: str, user_id: int, db: Session, agent_type: str, lang: s
         "initial_observations": None,
         "max_steps": _MAX_STEPS,
         # Prefer native structured tool calls (Groq's `tools=`) over
-        # text-parsed Thought/Action/Observation for these multi-tool agents;
-        # chat_react.py (single-tool chat) deliberately keeps the
-        # text-parsed path instead - see react_engine.py's docstring for why
-        # both approaches are worth having.
+        # text-parsed Thought/Action/Observation - see react_engine.py's
+        # docstring for why both mechanisms exist (also used by chat_react.py).
         "chat_with_tools_fn": chat_with_tools,
     }
 
@@ -317,8 +323,18 @@ def analyze(goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGEN
 
     See analyze_stream() for the incremental (SSE) equivalent of this same
     pipeline.
+
+    Recommendations are computed unconditionally even when the guard below
+    blocks the goal (skipping the LLM call): they're derived from real spend
+    data via agent_type alone (see _compute_recommendations), never from the
+    goal text, so they stay valid whether or not the ReAct trace ran.
     """
-    trace = run_react(**_react_kwargs(goal, user_id, db, agent_type, lang))
+    guard = validate_input(goal, lang=lang)
+    if guard:
+        trace = ReactTrace(final_answer=guard)
+    else:
+        trace = run_react(**_react_kwargs(goal, user_id, db, agent_type, lang))
+        trace.final_answer = sanitize_output(trace.final_answer)
     return _persist_run(goal, user_id, agent_type, trace, db, lang)
 
 
@@ -336,12 +352,18 @@ def analyze_stream(
     blank line the SSE format requires), ready to hand to
     fastapi.responses.StreamingResponse.
     """
-    trace = ReactTrace()
-    for step, final_answer in iter_react_steps(**_react_kwargs(goal, user_id, db, agent_type, lang)):
-        trace.steps.append(step)
-        yield f"event: step\ndata: {json.dumps(step_to_dict(step), ensure_ascii=False)}\n\n"
-        if final_answer is not None:
-            trace.final_answer = final_answer
+    guard = validate_input(goal, lang=lang)
+    if guard:
+        trace = ReactTrace(final_answer=guard)
+        step_obj = ReactStep(index=0, thought=None, tool=None, tool_input=None, observation=None, mode=None)
+        yield f"event: step\ndata: {json.dumps(step_to_dict(step_obj), ensure_ascii=False)}\n\n"
+    else:
+        trace = ReactTrace()
+        for step, final_answer in iter_react_steps(**_react_kwargs(goal, user_id, db, agent_type, lang)):
+            trace.steps.append(step)
+            yield f"event: step\ndata: {json.dumps(step_to_dict(step), ensure_ascii=False)}\n\n"
+            if final_answer is not None:
+                trace.final_answer = sanitize_output(final_answer)
 
     run = _persist_run(goal, user_id, agent_type, trace, db, lang)
     done_payload = {

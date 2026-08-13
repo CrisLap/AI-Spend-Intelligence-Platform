@@ -10,7 +10,7 @@ from app.services.agents.react_engine import (
     iter_react_steps,
     run_react,
 )
-from app.services.ai import chat
+from app.services.ai import chat, chat_with_tools
 from app.services.guardrails import sanitize_output, validate_input
 
 _MAX_REACT_STEPS = 3
@@ -57,6 +57,17 @@ def _build_react_call(
         "tools": [tool],
         "initial_observations": format_observations(context),
         "max_steps": _MAX_REACT_STEPS,
+        # Prefer native structured tool calls (Groq's `tools=`) over
+        # text-parsed Thought/Action/Observation, same as cost_saving_agent.py.
+        # Required for agentic Groq models (e.g. openai/gpt-oss-20b): they
+        # attempt a real structured tool call for "search_spend" whenever the
+        # system prompt describes it as an available tool, regardless of the
+        # plain-text Thought/Action instructions - if no `tools=` schema is
+        # sent with the request, Groq rejects that response with a 400
+        # "tool_use_failed" error ("Tool choice is none, but model called a
+        # tool") instead of returning it as text, which used to make every
+        # Groq reply fail straight through to the offline fallback.
+        "chat_with_tools_fn": chat_with_tools,
     }
 
 

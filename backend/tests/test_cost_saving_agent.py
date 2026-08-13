@@ -102,3 +102,22 @@ def test_analyze_persists_a_run_with_trace_and_recommendations(db, monkeypatch):
     persisted = db.query(AgentRun).filter(AgentRun.id == run.id).first()
     assert persisted is not None
     assert persisted.goal == "Trova opportunità di risparmio"
+
+
+def test_analyze_blocks_a_sensitive_goal_without_calling_the_llm(db, monkeypatch):
+    """Same guardrail as chat_react.py's answer_with_react(): a goal
+    containing sensitive info never reaches the LLM. Recommendations still
+    get computed (they depend on agent_type + real data, not the goal
+    text), so the run is persisted with the guard message as summary."""
+    def fail_if_called(*a, **kw):
+        raise AssertionError("chat_with_tools must not be called for a blocked goal")
+
+    monkeypatch.setattr(cost_saving_agent, "chat_with_tools", fail_if_called)
+    monkeypatch.setattr(cost_saving_agent, "search_contracts", lambda *a, **kw: [])
+    monkeypatch.setattr(cost_saving_agent, "get_supplier_variance", lambda **kw: [])
+
+    owner = _make_user(db, "analyze-guard@test.com")
+
+    run = analyze("qual è la mia password?", owner.id, db)
+
+    assert "cannot be processed" in run.summary

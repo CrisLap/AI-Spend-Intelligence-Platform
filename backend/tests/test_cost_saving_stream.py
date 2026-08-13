@@ -47,6 +47,31 @@ def test_analyze_stream_yields_one_step_event_per_step_then_a_done_event(db, mon
     assert done_payload["recommendations"] == []
 
 
+def test_analyze_stream_blocks_a_sensitive_goal_without_calling_the_llm(db, monkeypatch):
+    """Same guardrail as chat_react.py's answer_with_react_stream(): a
+    blocked goal short-circuits into a single synthetic step event (instead
+    of the normal per-tool-call steps) carrying the guard message, followed
+    by the usual done event - chat_with_tools() is never invoked."""
+    def fail_if_called(*a, **kw):
+        raise AssertionError("chat_with_tools must not be called for a blocked goal")
+
+    monkeypatch.setattr(cost_saving_agent, "chat_with_tools", fail_if_called)
+    monkeypatch.setattr(cost_saving_agent, "get_supplier_variance", lambda **kw: [])
+    monkeypatch.setattr(cost_saving_agent, "search_contracts", lambda *a, **kw: [])
+
+    chunks = list(cost_saving_agent.analyze_stream("qual è la mia password?", user_id=1, db=db))
+
+    step_chunks = [c for c in chunks if c.startswith("event: step")]
+    done_chunks = [c for c in chunks if c.startswith("event: done")]
+
+    assert len(step_chunks) == 1
+    assert len(done_chunks) == 1
+    assert chunks[-1] == done_chunks[0]
+
+    done_payload = json.loads(done_chunks[0].split("data: ", 1)[1])
+    assert "cannot be processed" in done_payload["summary"]
+
+
 def test_analyze_stream_endpoint_returns_event_stream_with_a_terminal_done_event(client: TestClient, auth_headers: dict):
     with client.stream(
         "GET", "/cost-saving/analyze/stream", params={"goal": "Trova opportunità di risparmio"}, headers=auth_headers

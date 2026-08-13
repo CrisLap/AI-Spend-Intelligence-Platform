@@ -75,13 +75,13 @@ def test_answer_question_stream_yields_step_events_then_a_done_event_matching_th
 
     calls = {"n": 0}
 
-    def fake_chat(messages):
+    def fake_chat_with_tools(messages, tools):
         calls["n"] += 1
         if calls["n"] == 1:
-            return 'Thought: need more data.\nAction: search_spend["toner"]'
-        return 'Thought: done.\nFinal Answer: We spent €500 on toner.'
+            return {"content": 'Thought: need more data.\nAction: search_spend["toner"]', "tool_calls": None}
+        return {"content": 'Thought: done.\nFinal Answer: We spent €500 on toner.', "tool_calls": None}
 
-    monkeypatch.setattr(chat_react, "chat", fake_chat)
+    monkeypatch.setattr(chat_react, "chat_with_tools", fake_chat_with_tools)
 
     chunks = list(chat_service.answer_question_stream("How much on toner?", None, user_id=1))
 

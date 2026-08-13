@@ -5,7 +5,11 @@ from app.services import chat_react
 
 def test_direct_final_answer(monkeypatch):
     monkeypatch.setattr(
-        chat_react, "chat", lambda messages: 'Thought: I have enough info.\nFinal Answer: We spent €500 on toner [Invoice-1].'
+        chat_react, "chat_with_tools",
+        lambda messages, tools: {
+            "content": 'Thought: I have enough info.\nFinal Answer: We spent €500 on toner [Invoice-1].',
+            "tool_calls": None,
+        },
     )
     reply = chat_react.answer_with_react(
         message="How much on toner?",
@@ -15,15 +19,26 @@ def test_direct_final_answer(monkeypatch):
 
 
 def test_react_loop_calls_tool_then_answers(monkeypatch):
+    """chat_react.py drives its ReAct loop through chat_with_tools() (not
+    plain chat()) so Groq's agentic models - which attempt a real structured
+    tool call for "search_spend" as soon as the system prompt describes it
+    as available, even mid plain-text reply - get a valid `tools=` schema in
+    the request instead of a 400 "tool_use_failed" (see chat_react.py's
+    _build_react_call). This test mocks that boundary with plain-text
+    content (tool_calls=None), which still exercises the regex-parsed
+    Thought/Action/Observation path via react_engine's fallback."""
     calls = {"n": 0}
 
-    def fake_chat(messages):
+    def fake_chat_with_tools(messages, tools):
         calls["n"] += 1
         if calls["n"] == 1:
-            return 'Thought: need more data.\nAction: search_spend["HP toner suppliers"]'
-        return 'Thought: now I know.\nFinal Answer: HP is the main toner supplier.'
+            return {
+                "content": 'Thought: need more data.\nAction: search_spend["HP toner suppliers"]',
+                "tool_calls": None,
+            }
+        return {"content": 'Thought: now I know.\nFinal Answer: HP is the main toner supplier.', "tool_calls": None}
 
-    monkeypatch.setattr(chat_react, "chat", fake_chat)
+    monkeypatch.setattr(chat_react, "chat_with_tools", fake_chat_with_tools)
 
     searched = {}
 
@@ -43,7 +58,10 @@ def test_react_loop_calls_tool_then_answers(monkeypatch):
 
 
 def test_falls_back_to_raw_reply_when_format_not_followed(monkeypatch):
-    monkeypatch.setattr(chat_react, "chat", lambda messages: "Just a plain answer with no structure.")
+    monkeypatch.setattr(
+        chat_react, "chat_with_tools",
+        lambda messages, tools: {"content": "Just a plain answer with no structure.", "tool_calls": None},
+    )
     reply = chat_react.answer_with_react(message="Anything?", context=[])
     assert "plain answer" in reply
 
@@ -60,13 +78,16 @@ def test_guardrail_blocks_sensitive_input(monkeypatch):
 def test_stream_yields_one_step_per_action_then_a_final_answer(monkeypatch):
     calls = {"n": 0}
 
-    def fake_chat(messages):
+    def fake_chat_with_tools(messages, tools):
         calls["n"] += 1
         if calls["n"] == 1:
-            return 'Thought: need more data.\nAction: search_spend["HP toner suppliers"]'
-        return 'Thought: now I know.\nFinal Answer: HP is the main toner supplier.'
+            return {
+                "content": 'Thought: need more data.\nAction: search_spend["HP toner suppliers"]',
+                "tool_calls": None,
+            }
+        return {"content": 'Thought: now I know.\nFinal Answer: HP is the main toner supplier.', "tool_calls": None}
 
-    monkeypatch.setattr(chat_react, "chat", fake_chat)
+    monkeypatch.setattr(chat_react, "chat_with_tools", fake_chat_with_tools)
 
     steps = list(chat_react.answer_with_react_stream(message="Who supplies our toner?", context=[]))
 
