@@ -25,10 +25,20 @@ _ROLE_DESCRIPTION = (
     "textually similar to your query, not a ranking of the full dataset. "
     "Never phrase an answer as a superlative (highest, most expensive, "
     "biggest, top) based on search_spend results alone, since a bigger item "
-    "may simply not have matched the query text. For any question about the "
-    "highest/biggest/most expensive spend, use the top_expenses tool instead "
-    "- it is a real ranking over every record - and use search_spend only "
-    "for open-ended lookups (a supplier, a product, a topic)."
+    "may simply not have matched the query text."
+)
+
+# Only appended when top_expenses is actually registered in `tools` (see
+# _build_react_call) - naming a tool in the prompt that isn't in the
+# `tools=` schema sent to Groq makes agentic models attempt a structured
+# call for it anyway, which Groq rejects with a 400 tool_use_failed (the
+# same failure mode search_spend used to hit before chat_with_tools_fn was
+# wired in here).
+_TOP_EXPENSES_DIRECTIVE = (
+    " For any question about the highest/biggest/most expensive spend, use "
+    "the top_expenses tool instead - it is a real ranking over every record "
+    "- and use search_spend only for open-ended lookups (a supplier, a "
+    "product, a topic)."
 )
 
 
@@ -67,10 +77,12 @@ def _build_react_call(
     # not a semantic search), so it's only available when the caller passes
     # db/user_id - callers/tests that don't need it (e.g. unit tests driving
     # the ReAct loop in isolation) keep the single-tool set unchanged.
-    tools = [search_tool, top_expenses_tool_for(user_id, db)] if db is not None and user_id is not None else [search_tool]
+    has_top_expenses = db is not None and user_id is not None
+    tools = [search_tool, top_expenses_tool_for(user_id, db)] if has_top_expenses else [search_tool]
+    role_description = _ROLE_DESCRIPTION + (_TOP_EXPENSES_DIRECTIVE if has_top_expenses else "")
     return {
         "chat_fn": chat,
-        "system_prompt": build_system_prompt(_ROLE_DESCRIPTION, tools, lang=lang),
+        "system_prompt": build_system_prompt(role_description, tools, lang=lang),
         "task_prompt": f"## Conversation History\n{history_text or 'None yet.'}\n\n## Question\n{message}",
         "tools": tools,
         "initial_observations": format_observations(context),

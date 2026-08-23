@@ -11,3 +11,6 @@ node_modules/
 !**/data/uploads/.gitkeep
 .pytest_cache/
 *.db
+
+.claude/
+CLAUDE.md
