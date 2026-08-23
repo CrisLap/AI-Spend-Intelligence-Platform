@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_ui_language
+from app.core.rate_limit import limiter
 from app.models.agent_run import AgentRun
 from app.models.user import User
 from app.schemas.cost_saving import AgentRunOut, AgentRunRequest
 from app.services.audit_service import log_action
 from app.services.cost_saving_agent import AGENT_TYPES, analyze, analyze_stream
 
-router = APIRouter(prefix="/cost-saving", tags=["cost-saving"])
+router = APIRouter(prefix="/cost-saving", tags=["cost-saving"], dependencies=[Depends(get_current_user)])
 
 
 def _validate_agent_type(agent_type: str) -> str:
@@ -36,7 +37,9 @@ def _to_out(run: AgentRun) -> AgentRunOut:
 
 
 @router.post("/analyze", response_model=AgentRunOut)
+@limiter.limit("20/minute")
 def analyze_cost_saving(
+    request: Request,
     payload: AgentRunRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -56,7 +59,9 @@ def analyze_cost_saving(
 
 
 @router.get("/analyze/stream")
+@limiter.limit("20/minute")
 def analyze_cost_saving_stream(
+    request: Request,
     goal: str = "Trova opportunità di risparmio",
     agent_type: str = "cost_saving",
     db: Session = Depends(get_db),
@@ -71,6 +76,12 @@ def analyze_cost_saving_stream(
     else, and a query-string token would leak into browser history/server
     logs - the frontend instead reads this stream with `fetch()` +
     `ReadableStream`, which does support custom headers.
+
+    DO NOT convert this to POST: it would break the SSE streaming
+    contract with the frontend's fetch()+ReadableStream reader. This
+    endpoint does write to the DB (AgentRun + audit log) despite being a
+    GET - see the rationale above; that's a deliberate, documented
+    tradeoff, not an oversight.
     """
     agent_type = _validate_agent_type(agent_type)
 
@@ -102,8 +113,8 @@ def analyze_cost_saving_stream(
 
 @router.get("/history", response_model=list[AgentRunOut])
 def list_history(
-    skip: int = 0,
-    limit: int = 20,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     agent_type: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),

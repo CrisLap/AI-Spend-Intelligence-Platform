@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
@@ -27,7 +29,9 @@ from app.services.document_intelligence import extract_metadata, extract_raw_tex
 from app.services.duplicates import find_duplicates
 from app.services.vector_store import delete_contract_chunks, delete_line_items, upsert_line_item
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depends(get_current_user)])
 
 
 def _clear_document_children(db: Session, document_id: int) -> list[int]:
@@ -74,6 +78,28 @@ def _clear_document_children(db: Session, document_id: int) -> list[int]:
 
 ALLOWED_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".xls", ".png", ".jpg", ".jpeg", ".tiff", ".bmp"}
 
+# Magic-byte signatures for the binary formats in ALLOWED_EXTENSIONS, so the
+# extension check can't be bypassed by simply renaming an arbitrary file.
+# .csv is intentionally excluded - it's plain text with no reliable magic
+# number, so it's left to the extension check + downstream parser failure.
+_MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
+    ".pdf": (b"%PDF-",),
+    ".xlsx": (b"PK\x03\x04",),
+    ".xls": (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",),
+    ".png": (b"\x89PNG\r\n\x1a\n",),
+    ".jpg": (b"\xff\xd8\xff",),
+    ".jpeg": (b"\xff\xd8\xff",),
+    ".tiff": (b"II*\x00", b"MM\x00*"),
+    ".bmp": (b"BM",),
+}
+
+
+def _content_matches_extension(content: bytes, suffix: str) -> bool:
+    signatures = _MAGIC_SIGNATURES.get(suffix)
+    if signatures is None:
+        return True
+    return any(content.startswith(sig) for sig in signatures)
+
 
 @router.post("/upload", response_model=DocumentOut, status_code=201)
 def upload_document(
@@ -90,12 +116,19 @@ def upload_document(
             detail=f"Unsupported file type '{suffix}'. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
 
-    content = file.file.read()
     max_bytes = settings.max_upload_mb * 1024 * 1024
+    # Read at most max_bytes + 1: enough to detect an oversized upload
+    # without ever buffering more than ~max_bytes into memory first.
+    content = file.file.read(max_bytes + 1)
     if len(content) > max_bytes:
         raise HTTPException(
             status_code=413,
             detail=f"File exceeds the {settings.max_upload_mb}MB upload limit",
+        )
+    if not _content_matches_extension(content, suffix):
+        raise HTTPException(
+            status_code=415,
+            detail=f"File content does not match its '{suffix}' extension",
         )
 
     filename, file_path = save_upload(content, file.filename or "unknown")
@@ -226,16 +259,17 @@ def process_document(
         )
         return result
     except Exception as e:
+        logger.exception("Document processing failed for doc_id=%s", doc.id)
         doc.status = DocumentStatus.failed
-        doc.error_message = str(e)
+        doc.error_message = "Processing failed. Please retry or contact support."
         db.commit()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Document processing failed.") from e
 
 
 @router.get("", response_model=list[DocumentOut])
 def list_documents(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):

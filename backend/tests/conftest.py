@@ -11,12 +11,20 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 from app.core.database import Base, get_db
+from app.core.rate_limit import limiter
 from app.core.security import hash_password
 from app.main import app
 from app.models.user import User
 
 # Speed up tests by reducing Ollama timeout (no server in CI/local)
 settings.ollama_timeout = 1
+
+# The whole test session shares one in-memory rate limiter (keyed by the
+# TestClient's fixed fake IP), so tests that legitimately call
+# /auth/login, /auth/register, /chat etc. many times would otherwise trip
+# the same limits a real abusive client would - disabled by default here;
+# see test_rate_limiting.py for a dedicated test that re-enables it.
+limiter.enabled = False
 
 _db_path = os.path.join(tempfile.gettempdir(), "spendintel_test.db")
 if os.path.exists(_db_path):

@@ -2,23 +2,26 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_ui_language
+from app.core.rate_limit import limiter
 from app.models.user import User
 from app.schemas.assistant import AssistantChatResult, AssistantRequest, AssistantResponse, AssistantSuggestion
 from app.services.assistant_router import classify_intent
 from app.services.audit_service import log_action
 from app.services.chat_service import answer_question, answer_question_stream
 
-router = APIRouter(prefix="/assistant", tags=["assistant"])
+router = APIRouter(prefix="/assistant", tags=["assistant"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", response_model=AssistantResponse)
+@limiter.limit("20/minute")
 def route_message(
+    request: Request,
     payload: AssistantRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -65,8 +68,10 @@ def route_message(
 
 
 @router.get("/stream")
+@limiter.limit("20/minute")
 def route_message_stream(
-    message: str,
+    request: Request,
+    message: str = Query(..., min_length=1, max_length=4000),
     session_id: int | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -82,6 +87,11 @@ def route_message_stream(
     docstring) - it streams a single `event: suggestion` and closes, so the
     frontend's handling of that case is identical whether it came from the
     batch or streaming entry point.
+
+    DO NOT convert this to POST: it would break the SSE streaming contract
+    with the frontend's fetch()+ReadableStream reader. This endpoint does
+    write an audit log entry despite being a GET - see the rationale
+    above; that's a deliberate, documented tradeoff, not an oversight.
     """
     classification = classify_intent(message)
     log_action(

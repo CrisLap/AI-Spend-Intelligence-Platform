@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import require_role
+from app.core.deps import get_current_user, require_role
 from app.models.agent_run import AgentRun
 from app.models.audit import AuditLog
 from app.models.chat import ChatMessage, ChatSession
@@ -18,7 +18,7 @@ from app.services.audit_service import log_action
 
 VALID_ROLES = {"admin", "buyer", "finance"}
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[UserOut])
@@ -59,7 +59,7 @@ def update_user_role(
 @router.get("/{user_id}/audit-log")
 def get_user_audit_log(
     user_id: int,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
 ):

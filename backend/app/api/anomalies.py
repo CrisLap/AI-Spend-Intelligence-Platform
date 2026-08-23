@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -8,13 +8,13 @@ from app.core.deps import get_current_user
 from app.models.document import Document, LineItem
 from app.models.user import User
 
-router = APIRouter(prefix="/anomalies", tags=["anomalies"])
+router = APIRouter(prefix="/anomalies", tags=["anomalies"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("")
 def list_anomalies(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):

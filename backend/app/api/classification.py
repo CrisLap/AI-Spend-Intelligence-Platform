@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
+from app.core.rate_limit import limiter
 from app.models.document import Document, LineItem
 from app.models.user import User
 from app.schemas.document import LineItemOut, LineItemUpdate
@@ -13,25 +16,31 @@ from app.services.audit_service import log_action
 from app.services.classifier import classify_batch, classify_description, seed_feedback_exemplars
 from app.services.feedback_service import get_feedback_for_training, mark_trained
 
-router = APIRouter(prefix="/classification", tags=["classification"])
+router = APIRouter(prefix="/classification", tags=["classification"], dependencies=[Depends(get_current_user)])
 
 
 class ClassifyRequest(BaseModel):
-    descriptions: list[str]
+    descriptions: Annotated[list[Annotated[str, Field(max_length=500)]], Field(max_length=200)]
 
 
 class ClassifyResponse(BaseModel):
     results: list[dict]
 
 
+class ClassifySingleRequest(BaseModel):
+    desc: str = Field(..., min_length=1, max_length=2000)
+
+
 @router.post("", response_model=ClassifyResponse)
-def classify(payload: ClassifyRequest, user: User = Depends(get_current_user)):
+@limiter.limit("20/minute")
+def classify(request: Request, payload: ClassifyRequest, user: User = Depends(get_current_user)):
     return ClassifyResponse(results=classify_batch(payload.descriptions))
 
 
 @router.post("/single", response_model=dict)
-def classify_single(desc: str, user: User = Depends(get_current_user)):
-    return classify_description(desc)
+@limiter.limit("20/minute")
+def classify_single(request: Request, payload: ClassifySingleRequest, user: User = Depends(get_current_user)):
+    return classify_description(payload.desc)
 
 
 @router.patch("/line-items/{item_id}", response_model=LineItemOut)

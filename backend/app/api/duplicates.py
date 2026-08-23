@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -8,13 +8,13 @@ from app.core.deps import get_current_user
 from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
 from app.models.user import User
 
-router = APIRouter(prefix="/duplicates", tags=["duplicates"])
+router = APIRouter(prefix="/duplicates", tags=["duplicates"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("")
 def list_duplicates(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -43,7 +43,12 @@ def list_duplicates(
         ).all()
         group_items = []
         for gi in group_item_links:
-            item = db.query(LineItem).filter(LineItem.id == gi.line_item_id).first()
+            item = (
+                db.query(LineItem)
+                .join(Document, LineItem.document_id == Document.id)
+                .filter(LineItem.id == gi.line_item_id, Document.user_id == user.id)
+                .first()
+            )
             if item:
                 group_items.append({
                     "id": item.id,

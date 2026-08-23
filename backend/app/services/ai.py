@@ -68,10 +68,8 @@ def _groq_chat(messages: list[dict]) -> str | None:
         choices = r.json().get("choices", [])
         return choices[0]["message"]["content"] if choices else None
     except httpx.HTTPStatusError as e:
-        logger.error(
-            "Groq chat call failed with status %s, falling back to offline reply: %s",
-            e.response.status_code, e.response.text,
-        )
+        logger.warning("Groq chat call failed with status %s, falling back to offline reply", e.response.status_code)
+        logger.debug("Groq error body: %s", e.response.text[:500])
         return None
     except Exception:
         logger.exception("Groq chat call failed, falling back to offline reply")
@@ -96,10 +94,11 @@ def _groq_chat_with_tools(messages: list[dict], tools: list[dict]) -> dict | Non
         message = choices[0]["message"]
         return {"content": message.get("content"), "tool_calls": message.get("tool_calls")}
     except httpx.HTTPStatusError as e:
-        logger.error(
-            "Groq structured tool-call chat failed with status %s, falling back to text parsing/offline reply: %s",
-            e.response.status_code, e.response.text,
+        logger.warning(
+            "Groq structured tool-call chat failed with status %s, falling back to text parsing/offline reply",
+            e.response.status_code,
         )
+        logger.debug("Groq error body: %s", e.response.text[:500])
         return None
     except Exception:
         logger.exception("Groq structured tool-call chat failed, falling back to text parsing/offline reply")

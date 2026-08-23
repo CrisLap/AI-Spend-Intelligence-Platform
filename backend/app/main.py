@@ -4,6 +4,9 @@ import time
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import (
     analytics,
@@ -21,6 +24,7 @@ from app.api import (
 )
 from app.core.config import settings
 from app.core.database import Base, engine
+from app.core.rate_limit import limiter
 
 app = FastAPI(
     title=settings.app_name,
@@ -29,8 +33,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "X-UI-Language"],
+)
 
 
 @app.middleware("http")
@@ -42,17 +55,24 @@ async def timing_middleware(request: Request, call_next):
     return response
 
 
-def _check_secret_key():
-    if settings.environment == "production" and settings.secret_key == "change-me-in-production":
+def _check_required_config():
+    if settings.environment != "production":
+        return
+    if settings.secret_key == "change-me-in-production":
         raise RuntimeError(
             "SECRET_KEY is still set to the insecure default. "
             "Set a real SECRET_KEY environment variable before starting in production."
+        )
+    if "localhost" in settings.database_url or "@postgres:" in settings.database_url:
+        raise RuntimeError(
+            "DATABASE_URL is still pointing at a local/dev database default. "
+            "Set a real DATABASE_URL environment variable before starting in production."
         )
 
 
 @app.on_event("startup")
 def startup():
-    _check_secret_key()
+    _check_required_config()
     Base.metadata.create_all(bind=engine)
 
 

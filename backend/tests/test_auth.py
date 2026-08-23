@@ -2,9 +2,16 @@ from fastapi.testclient import TestClient
 
 
 def test_register(client: TestClient):
-    r = client.post("/auth/register", json={"email": "new@user.com", "password": "pass", "full_name": "New User"})
+    r = client.post(
+        "/auth/register", json={"email": "new@user.com", "password": "a-strong-passw0rd", "full_name": "New User"}
+    )
     assert r.status_code == 201
     assert "access_token" in r.json()
+
+
+def test_register_rejects_weak_password(client: TestClient):
+    r = client.post("/auth/register", json={"email": "weak@user.com", "password": "short", "full_name": "Weak User"})
+    assert r.status_code == 422
 
 
 def test_login(client: TestClient):

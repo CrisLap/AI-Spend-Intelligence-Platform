@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 
 def _register_and_login(client: TestClient, email: str, role_attempt: str | None = None) -> tuple[str, dict]:
-    payload = {"email": email, "password": "pass1234", "full_name": "Test"}
+    payload = {"email": email, "password": "pass1234567", "full_name": "Test"}
     if role_attempt:
         payload["role"] = role_attempt
     r = client.post("/auth/register", json=payload)

@@ -10,7 +10,7 @@ from app.schemas.feedback import FeedbackCreate, FeedbackOut
 from app.services.audit_service import log_action
 from app.services.feedback_service import save_feedback
 
-router = APIRouter(prefix="/feedback", tags=["feedback"])
+router = APIRouter(prefix="/feedback", tags=["feedback"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", response_model=FeedbackOut, status_code=201)

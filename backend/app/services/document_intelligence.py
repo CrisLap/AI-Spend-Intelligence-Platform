@@ -14,6 +14,12 @@ from app.core.config import settings
 from app.services.ai import chat
 from app.services.executor import run_cpu_bound
 
+# Explicit decompression-bomb guard: an uploaded image with an enormous
+# pixel count (possible even within the 50MB upload size cap, e.g. a highly
+# compressed PNG) can exhaust CPU/RAM during OCR. Pillow's own default is
+# similar but left implicit; pin it explicitly so it can't silently change.
+Image.MAX_IMAGE_PIXELS = 50_000_000
+
 _EXTRACT_ITEMS_INVOICE_PROMPT = (
     "You are a specialized assistant for extracting data from invoices. "
     "Analyze the following invoice text and return a JSON array of objects with fields: "
