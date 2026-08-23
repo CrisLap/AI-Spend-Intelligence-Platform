@@ -1,11 +1,11 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.core.database import Base
+from alembic import context
 from app.core.config import settings
-from app.models import user, document, feedback, chat, audit  # noqa: F401
+from app.core.database import Base
+from app.models import audit, chat, document, feedback, user  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
