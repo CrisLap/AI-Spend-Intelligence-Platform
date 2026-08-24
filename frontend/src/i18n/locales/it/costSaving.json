@@ -27,6 +27,10 @@
   "recommendationsCount": "Raccomandazioni ({{count}})",
   "noRecommendations": "Nessuna opportunità rilevata nei dati attuali.",
   "history": "Cronologia",
+  "historyFilter": {
+    "all": "Tutti",
+    "searchPlaceholder": "Filtra per obiettivo..."
+  },
   "timeline": {
     "empty": "Nessun passaggio registrato.",
     "analyzing": "Analisi in corso...",

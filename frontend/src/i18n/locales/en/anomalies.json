@@ -6,5 +6,12 @@
   "price": "Price:",
   "category": "Category:",
   "notAvailable": "N/A",
-  "zscore": "z-score: {{value}}"
+  "zscore": "z-score: {{value}}",
+  "sortBy": {
+    "zscore": "Sort by z-score",
+    "price": "Sort by price"
+  },
+  "resolvedToast": "Anomaly marked as resolved.",
+  "unresolvedToast": "Anomaly reopened.",
+  "noResults": "No anomalies match the current filters."
 }

@@ -14,5 +14,24 @@
     "title": "Delete document",
     "message": "Delete \"{{name}}\"? This also deletes its extracted line items.",
     "confirm": "Delete"
-  }
+  },
+  "statusOptions": {
+    "all": "All statuses",
+    "uploaded": "Uploaded",
+    "processing": "Processing",
+    "parsed": "Parsed",
+    "failed": "Failed",
+    "classified": "Classified"
+  },
+  "sortAria": "Sort by {{column}}",
+  "dropzone": {
+    "hint": "Drag & drop a file here",
+    "orClick": "or click to browse",
+    "allowedTypes": "PDF, Excel, CSV, PNG, JPEG — up to {{maxMb}}MB",
+    "remove": "Remove file",
+    "invalidFileType": "Unsupported file type. Allowed: PDF, Excel, CSV, PNG, JPEG.",
+    "fileTooLarge": "File exceeds the {{maxMb}}MB upload limit."
+  },
+  "stageUploading": "Uploading file...",
+  "stageProcessing": "Analyzing & classifying..."
 }

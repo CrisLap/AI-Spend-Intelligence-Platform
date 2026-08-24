@@ -12,3 +12,26 @@
   --color-danger: #ef4444;
   --color-ok: #22c55e;
 }
+
+/* Light theme overrides. `data-theme` is set on <html> by ThemeContext
+   (and, before React mounts, by the inline script in index.html) — the
+   values above stay the dark defaults. */
+:root[data-theme="light"] {
+  --color-surface: #f5f5f7;
+  --color-panel: #ffffff;
+  --color-panel-2: #f0f0f4;
+  --color-border: #e0e0e8;
+  --color-muted: #6b6b80;
+  --color-parchment: #1a1a1f;
+  --color-teal: #0d9488;
+  --color-amber: #b45309;
+  --color-danger: #dc2626;
+  --color-ok: #16a34a;
+}
+
+/* Indeterminate progress bar used while a document is uploading/processing
+   (Documents.tsx) - the backend doesn't report real percentage progress. */
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}

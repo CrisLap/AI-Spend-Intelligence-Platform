@@ -52,6 +52,10 @@ class LineItemUpdate(BaseModel):
     description: str | None = None
 
 
+class ResolvedUpdate(BaseModel):
+    resolved: bool
+
+
 class DuplicateGroupOut(BaseModel):
     id: int
     reason: str

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { search } from "../api";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -6,20 +7,34 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 export default function SemanticSearch() {
   const { t } = useTranslation("search");
   useDocumentTitle(t("title"));
-  const [query, setQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<any[] | null>(null);
   const [error, setError] = useState("");
 
-  async function handle(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
+  async function runSearch(q: string) {
+    if (!q.trim()) return;
     setError("");
     try {
-      const res = await search.semantic(query);
+      const res = await search.semantic(q);
       setResults(res.results);
     } catch (err: any) {
       setError(err.message);
     }
+  }
+
+  // Drill-down from Dashboard's Top Suppliers/Top Categories links here
+  // with ?q=<name> - run it automatically instead of making the user
+  // retype and resubmit what they just clicked.
+  useEffect(() => {
+    if (initialQuery) runSearch(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handle(e: React.FormEvent) {
+    e.preventDefault();
+    await runSearch(query);
   }
 
   return (

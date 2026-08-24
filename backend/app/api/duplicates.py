@@ -1,41 +1,49 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
 from app.models.user import User
+from app.schemas.document import ResolvedUpdate
+from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/duplicates", tags=["duplicates"], dependencies=[Depends(get_current_user)])
+
+
+def _own_group_ids_query(db: Session, user: User, search: str | None = None):
+    q = (
+        db.query(LineItemGroupItem.group_id)
+        .join(LineItem, LineItemGroupItem.line_item_id == LineItem.id)
+        .join(Document, LineItem.document_id == Document.id)
+        .filter(Document.user_id == user.id)
+    )
+    if search:
+        like = f"%{search}%"
+        q = q.filter(or_(LineItem.description.ilike(like), LineItem.supplier.ilike(like)))
+    return q.distinct()
 
 
 @router.get("")
 def list_duplicates(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    search: str | None = Query(None, max_length=200),
+    include_resolved: bool = Query(False),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     # Only groups that contain at least one line item belonging to the
     # current user's own documents (previously this returned every user's
     # duplicate groups, regardless of ownership).
-    own_group_ids = (
-        db.query(LineItemGroupItem.group_id)
-        .join(LineItem, LineItemGroupItem.line_item_id == LineItem.id)
-        .join(Document, LineItem.document_id == Document.id)
-        .filter(Document.user_id == user.id)
-        .distinct()
-    )
-    groups = (
-        db.query(LineItemGroup)
-        .filter(LineItemGroup.id.in_(own_group_ids))
-        .order_by(LineItemGroup.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    own_group_ids = _own_group_ids_query(db, user, search)
+    query = db.query(LineItemGroup).filter(LineItemGroup.id.in_(own_group_ids))
+    if not include_resolved:
+        query = query.filter(LineItemGroup.resolved == False)  # noqa: E712
+    groups = query.order_by(LineItemGroup.created_at.desc()).offset(skip).limit(limit).all()
     result = []
     for g in groups:
         group_item_links = db.query(LineItemGroupItem).filter(
@@ -62,5 +70,31 @@ def list_duplicates(
             "reason": g.reason,
             "similarity": g.similarity,
             "items": group_items,
+            "resolved": g.resolved,
         })
     return result
+
+
+@router.patch("/{group_id}/resolve")
+def resolve_duplicate(
+    group_id: int,
+    body: ResolvedUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    own_group_ids = _own_group_ids_query(db, user)
+    group = db.query(LineItemGroup).filter(
+        LineItemGroup.id == group_id,
+        LineItemGroup.id.in_(own_group_ids),
+    ).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Duplicate group not found")
+    group.resolved = body.resolved
+    db.commit()
+    log_action(
+        db, user_id=user.id,
+        action="resolve_duplicate" if body.resolved else "unresolve_duplicate",
+        entity_type="line_item_group", entity_id=group.id,
+        details={"resolved": body.resolved},
+    )
+    return {"id": group.id, "resolved": group.resolved}

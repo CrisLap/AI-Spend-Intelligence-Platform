@@ -1,5 +1,8 @@
 {
   "title": "Duplicati rilevati",
   "empty": "Nessun duplicato rilevato.",
-  "group": "Gruppo duplicati"
+  "group": "Gruppo duplicati",
+  "resolvedToast": "Gruppo di duplicati segnato come risolto.",
+  "unresolvedToast": "Gruppo di duplicati riaperto.",
+  "noResults": "Nessun gruppo di duplicati corrisponde ai filtri attuali."
 }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
@@ -266,16 +267,32 @@ def process_document(
         raise HTTPException(status_code=500, detail="Document processing failed.") from e
 
 
+_SORT_COLUMNS = {
+    "name": Document.original_name,
+    "status": Document.status,
+    "date": Document.created_at,
+}
+
+
 @router.get("", response_model=list[DocumentOut])
 def list_documents(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    search: str | None = Query(None, max_length=200),
+    status: DocumentStatus | None = Query(None),
+    sort_by: Literal["name", "status", "date"] = "date",
+    sort_dir: Literal["asc", "desc"] = "desc",
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    docs = db.query(Document).filter(Document.user_id == user.id).order_by(
-        Document.created_at.desc()
-    ).offset(skip).limit(limit).all()
+    query = db.query(Document).filter(Document.user_id == user.id)
+    if search:
+        query = query.filter(Document.original_name.ilike(f"%{search}%"))
+    if status is not None:
+        query = query.filter(Document.status == status)
+    column = _SORT_COLUMNS[sort_by]
+    order = column.asc() if sort_dir == "asc" else column.desc()
+    docs = query.order_by(order).offset(skip).limit(limit).all()
     return [DocumentOut.model_validate(d) for d in docs]
 
 

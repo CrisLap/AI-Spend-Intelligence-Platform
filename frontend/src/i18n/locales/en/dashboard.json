@@ -12,5 +12,11 @@
   "spendByCategory": "Spend by Category",
   "monthlySpend": "Monthly Spend",
   "topSuppliers": "Top Suppliers",
-  "topCategories": "Top Categories"
+  "topCategories": "Top Categories",
+  "other": "Other",
+  "emptyState": {
+    "title": "No spend data yet",
+    "description": "Upload your first invoice, order, or contract to see your spend analytics here.",
+    "cta": "Upload a document"
+  }
 }

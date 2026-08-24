@@ -12,5 +12,11 @@
   "spendByCategory": "Spesa per categoria",
   "monthlySpend": "Spesa mensile",
   "topSuppliers": "Principali fornitori",
-  "topCategories": "Principali categorie"
+  "topCategories": "Principali categorie",
+  "other": "Altro",
+  "emptyState": {
+    "title": "Nessun dato di spesa ancora",
+    "description": "Carica la tua prima fattura, ordine o contratto per vedere qui le analisi di spesa.",
+    "cta": "Carica un documento"
+  }
 }

@@ -1,27 +1,32 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Menu, X } from "lucide-react";
+import {
+  AlertTriangle, Bot, FileText, LayoutDashboard, Link2, Menu, MessageSquare,
+  Moon, Search, ShieldCheck, Sun, Tags, X,
+} from "lucide-react";
 import { type User } from "../App";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
+import { useTheme } from "../context/ThemeContext";
 
 const NAV = [
-  { to: "/", labelKey: "nav.dashboard", icon: "📊" },
-  { to: "/documents", labelKey: "nav.documents", icon: "📄" },
-  { to: "/classification", labelKey: "nav.classification", icon: "🏷️" },
-  { to: "/search", labelKey: "nav.search", icon: "🔍" },
-  { to: "/chat", labelKey: "nav.chat", icon: "💬" },
-  { to: "/cost-saving", labelKey: "nav.costSaving", icon: "🤖" },
-  { to: "/anomalies", labelKey: "nav.anomalies", icon: "⚠️" },
-  { to: "/duplicates", labelKey: "nav.duplicates", icon: "🔗" },
+  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { to: "/documents", labelKey: "nav.documents", icon: FileText },
+  { to: "/classification", labelKey: "nav.classification", icon: Tags },
+  { to: "/search", labelKey: "nav.search", icon: Search },
+  { to: "/chat", labelKey: "nav.chat", icon: MessageSquare },
+  { to: "/cost-saving", labelKey: "nav.costSaving", icon: Bot },
+  { to: "/anomalies", labelKey: "nav.anomalies", icon: AlertTriangle },
+  { to: "/duplicates", labelKey: "nav.duplicates", icon: Link2 },
 ];
 
-const ADMIN_NAV = { to: "/admin", labelKey: "nav.admin", icon: "🛡️" };
+const ADMIN_NAV = { to: "/admin", labelKey: "nav.admin", icon: ShieldCheck };
 
 export default function Layout({ children, user, onLogout }: { children: React.ReactNode; user: User; onLogout: () => void }) {
   const { t, i18n } = useTranslation("common");
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const nav = user.role === "admin" ? [...NAV, ADMIN_NAV] : NAV;
 
   // Off-canvas drawer below md: auto-close on every navigation so it never
@@ -68,11 +73,11 @@ export default function Layout({ children, user, onLogout }: { children: React.R
             className={({ isActive }) =>
               `flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${isActive ? "bg-teal/10 text-teal" : "text-muted hover:text-parchment hover:bg-panel-2"}`
             }>
-            <span aria-hidden="true">{n.icon}</span> {t(n.labelKey)}
+            <n.icon size={16} aria-hidden="true" /> {t(n.labelKey)}
           </NavLink>
         ))}
         <div className="mt-auto pt-4 border-t border-border">
-          <div className="mb-2 flex gap-1">
+          <div className="mb-2 flex items-center gap-1">
             {SUPPORTED_LANGUAGES.map((lng: SupportedLanguage) => (
               <button
                 key={lng}
@@ -84,6 +89,14 @@ export default function Layout({ children, user, onLogout }: { children: React.R
                 {t(`language.${lng}`)}
               </button>
             ))}
+            <button
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
+              title={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
+              className="ml-auto rounded p-1 text-muted hover:text-parchment transition-colors"
+            >
+              {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
+            </button>
           </div>
           <p className="text-xs text-muted">{user.full_name}</p>
           <p className="text-xs text-muted/60">{user.role}</p>

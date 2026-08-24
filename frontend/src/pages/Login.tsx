@@ -50,8 +50,15 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
         <input id={emailId} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} required
           className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
         <label htmlFor={passwordId} className="sr-only">{t("passwordPlaceholder")}</label>
-        <input id={passwordId} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("passwordPlaceholder")} required
+        <input
+          id={passwordId} type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+          placeholder={t("passwordPlaceholder")} required
+          // Only enforced when registering: accounts created before the
+          // 10-character rule was added may still have shorter passwords
+          // already hashed in the DB, and this must not block their login.
+          minLength={isRegister ? 10 : undefined}
           className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+        {isRegister && <p className="text-xs text-muted -mt-2">{t("passwordHint")}</p>}
         {error && <p className="text-xs text-danger">{error}</p>}
         <button type="submit" className="rounded bg-teal py-2 text-sm font-semibold text-surface hover:opacity-90">
           {isRegister ? t("register") : t("signIn")}

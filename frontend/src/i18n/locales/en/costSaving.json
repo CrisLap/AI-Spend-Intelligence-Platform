@@ -27,6 +27,10 @@
   "recommendationsCount": "Recommendations ({{count}})",
   "noRecommendations": "No opportunities found in the current data.",
   "history": "History",
+  "historyFilter": {
+    "all": "All",
+    "searchPlaceholder": "Filter by goal..."
+  },
   "timeline": {
     "empty": "No steps recorded.",
     "analyzing": "Analyzing...",

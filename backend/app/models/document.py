@@ -57,6 +57,7 @@ class LineItem(Base):
     is_anomaly = Column(Boolean, default=False)
     anomaly_reason = Column(Text, nullable=True)
     anomaly_score = Column(Float, nullable=True)
+    anomaly_resolved = Column(Boolean, default=False, nullable=False, server_default="false")
     embedding_cache = Column(Text, nullable=True)  # JSON-encoded float list, lazily populated by search
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -67,6 +68,7 @@ class LineItemGroup(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     reason = Column(String(100), nullable=False)
     similarity = Column(Float, default=1.0)
+    resolved = Column(Boolean, default=False, nullable=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -14,5 +14,24 @@
     "title": "Elimina documento",
     "message": "Eliminare \"{{name}}\"? Verranno eliminate anche le voci estratte.",
     "confirm": "Elimina"
-  }
+  },
+  "statusOptions": {
+    "all": "Tutti gli stati",
+    "uploaded": "Caricato",
+    "processing": "In elaborazione",
+    "parsed": "Analizzato",
+    "failed": "Fallito",
+    "classified": "Classificato"
+  },
+  "sortAria": "Ordina per {{column}}",
+  "dropzone": {
+    "hint": "Trascina qui un file",
+    "orClick": "oppure clicca per sfogliare",
+    "allowedTypes": "PDF, Excel, CSV, PNG, JPEG — fino a {{maxMb}}MB",
+    "remove": "Rimuovi file",
+    "invalidFileType": "Tipo di file non supportato. Consentiti: PDF, Excel, CSV, PNG, JPEG.",
+    "fileTooLarge": "Il file supera il limite di caricamento di {{maxMb}}MB."
+  },
+  "stageUploading": "Caricamento file...",
+  "stageProcessing": "Analisi e classificazione..."
 }

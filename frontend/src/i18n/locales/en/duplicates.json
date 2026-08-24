@@ -1,5 +1,8 @@
 {
   "title": "Detected Duplicates",
   "empty": "No duplicates detected.",
-  "group": "Duplicate group"
+  "group": "Duplicate group",
+  "resolvedToast": "Duplicate group marked as resolved.",
+  "unresolvedToast": "Duplicate group reopened.",
+  "noResults": "No duplicate groups match the current filters."
 }

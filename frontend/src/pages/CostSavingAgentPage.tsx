@@ -50,10 +50,19 @@ export default function CostSavingAgentPage() {
   const [run, setRun] = useState<AgentRun | null>(null);
   const [history, setHistory] = useState<AgentRun[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [historyTypeFilter, setHistoryTypeFilter] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
 
+  // Independent of the `agentType` tabs above (which pick what a NEW
+  // analysis uses) - this refetches the history list scoped to a type,
+  // reusing the agent_type param the backend already supported.
   useEffect(() => {
-    costSaving.history().then(setHistory).catch(() => {});
-  }, []);
+    costSaving.history(0, 20, historyTypeFilter || undefined).then(setHistory).catch(() => {});
+  }, [historyTypeFilter]);
+
+  const filteredHistory = historySearch.trim()
+    ? history.filter((h) => h.goal.toLowerCase().includes(historySearch.trim().toLowerCase()))
+    : history;
 
   function handleAgentTypeChange(type: string) {
     setAgentType(type);
@@ -197,8 +206,34 @@ export default function CostSavingAgentPage() {
       {history.length > 0 && (
         <div className="rounded border border-border bg-panel p-4">
           <h2 className="mb-3 text-sm font-semibold">{t("history")}</h2>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setHistoryTypeFilter("")}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${historyTypeFilter === "" ? "border-teal text-teal" : "border-border text-muted hover:text-parchment"}`}
+            >
+              {t("historyFilter.all")}
+            </button>
+            {AGENT_TYPE_ORDER.map((type) => (
+              <button
+                type="button"
+                key={type}
+                onClick={() => setHistoryTypeFilter(type)}
+                className={`rounded-full border px-3 py-1 text-xs transition-colors ${historyTypeFilter === type ? "border-teal text-teal" : "border-border text-muted hover:text-parchment"}`}
+              >
+                {AGENT_TYPES[type].label}
+              </button>
+            ))}
+            <input
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              placeholder={t("historyFilter.searchPlaceholder")}
+              aria-label={t("historyFilter.searchPlaceholder")}
+              className="ml-auto min-w-[160px] rounded border border-border bg-panel-2 px-3 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+            />
+          </div>
           <div className="flex flex-col gap-2">
-            {history.map((h) => (
+            {filteredHistory.map((h) => (
               <button
                 key={h.id}
                 onClick={() => {

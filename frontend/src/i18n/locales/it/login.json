@@ -7,5 +7,6 @@
   "register": "Registrati",
   "signIn": "Accedi",
   "switchToSignIn": "Hai già un account? Accedi",
-  "switchToRegister": "Nuovo utente? Registrati"
+  "switchToRegister": "Nuovo utente? Registrati",
+  "passwordHint": "Almeno 10 caratteri"
 }

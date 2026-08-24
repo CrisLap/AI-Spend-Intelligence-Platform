@@ -122,6 +122,17 @@ export const auth = {
   me: () => request("/auth/me"),
 };
 
+function qs(params: Record<string, string | number | boolean | undefined>): string {
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === "") continue;
+    parts.push(`${k}=${encodeURIComponent(String(v))}`);
+  }
+  return parts.length ? `&${parts.join("&")}` : "";
+}
+
+export type DocumentListOpts = { search?: string; status?: string; sortBy?: "name" | "status" | "date"; sortDir?: "asc" | "desc" };
+
 export const documents = {
   upload: (file: File, doc_type?: string) => {
     const fd = new FormData();
@@ -129,7 +140,10 @@ export const documents = {
     const url = doc_type ? `/documents/upload?doc_type=${doc_type}` : "/documents/upload";
     return request(url, { method: "POST", body: fd });
   },
-  list: (skip = 0, limit = 50) => request(`/documents?skip=${skip}&limit=${limit}`),
+  list: (skip = 0, limit = 50, opts: DocumentListOpts = {}) =>
+    request(`/documents?skip=${skip}&limit=${limit}${qs({
+      search: opts.search, status: opts.status, sort_by: opts.sortBy, sort_dir: opts.sortDir,
+    })}`),
   get: (id: number) => request(`/documents/${id}`),
   process: (id: number) => request(`/documents/${id}/process`, { method: "POST" }),
   delete: (id: number) => request(`/documents/${id}`, { method: "DELETE" }),
@@ -164,12 +178,27 @@ export const analytics = {
   dashboard: () => request("/analytics/dashboard"),
 };
 
+export type AnomalyListOpts = { search?: string; sortBy?: "zscore" | "price"; sortDir?: "asc" | "desc"; includeResolved?: boolean };
+
 export const anomalies = {
-  list: (skip = 0, limit = 50) => request(`/anomalies?skip=${skip}&limit=${limit}`),
+  list: (skip = 0, limit = 50, opts: AnomalyListOpts = {}) =>
+    request(`/anomalies?skip=${skip}&limit=${limit}${qs({
+      search: opts.search, sort_by: opts.sortBy, sort_dir: opts.sortDir,
+      include_resolved: opts.includeResolved,
+    })}`),
+  resolve: (id: number, resolved: boolean) =>
+    request(`/anomalies/${id}/resolve`, { method: "PATCH", body: JSON.stringify({ resolved }) }),
 };
 
+export type DuplicateListOpts = { search?: string; includeResolved?: boolean };
+
 export const duplicates = {
-  list: (skip = 0, limit = 50) => request(`/duplicates?skip=${skip}&limit=${limit}`),
+  list: (skip = 0, limit = 50, opts: DuplicateListOpts = {}) =>
+    request(`/duplicates?skip=${skip}&limit=${limit}${qs({
+      search: opts.search, include_resolved: opts.includeResolved,
+    })}`),
+  resolve: (id: number, resolved: boolean) =>
+    request(`/duplicates/${id}/resolve`, { method: "PATCH", body: JSON.stringify({ resolved }) }),
 };
 
 export const costSaving = {

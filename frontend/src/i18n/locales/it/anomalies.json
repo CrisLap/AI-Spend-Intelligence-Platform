@@ -6,5 +6,12 @@
   "price": "Prezzo:",
   "category": "Categoria:",
   "notAvailable": "N/D",
-  "zscore": "z-score: {{value}}"
+  "zscore": "z-score: {{value}}",
+  "sortBy": {
+    "zscore": "Ordina per z-score",
+    "price": "Ordina per prezzo"
+  },
+  "resolvedToast": "Anomalia segnata come risolta.",
+  "unresolvedToast": "Anomalia riaperta.",
+  "noResults": "Nessuna anomalia corrisponde ai filtri attuali."
 }

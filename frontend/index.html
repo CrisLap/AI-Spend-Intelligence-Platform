@@ -9,8 +9,19 @@
     <meta property="og:title" content="AI Spend Intelligence Platform" />
     <meta property="og:description" content="AI-powered spend analytics platform: document extraction, semantic search, anomaly/duplicate detection, and a multi-agent cost-saving assistant grounded in real spend data." />
     <title>AI Spend Intelligence Platform</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var theme = stored === "dark" || stored === "light"
+            ? stored
+            : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-[#0a0a0f] text-[#e8e8ed] font-sans">
+  <body class="bg-surface text-parchment font-sans">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

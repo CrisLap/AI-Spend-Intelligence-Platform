@@ -33,5 +33,14 @@
     "description": "An unexpected error occurred. You can keep using the rest of the app from the sidebar, or reload this page.",
     "reload": "Reload"
   },
-  "retry": "Retry"
+  "retry": "Retry",
+  "theme": {
+    "switchToLight": "Switch to light theme",
+    "switchToDark": "Switch to dark theme"
+  },
+  "search": "Search...",
+  "showResolved": "Show resolved",
+  "resolve": "Mark resolved",
+  "unresolve": "Unmark resolved",
+  "resolved": "Resolved"
 }
