@@ -1,32 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface: #0a0a0f;
-  --color-panel: #13131a;
-  --color-panel-2: #1a1a26;
-  --color-border: #2a2a3a;
-  --color-muted: #6b6b80;
-  --color-parchment: #e8e8ed;
-  --color-teal: #2dd4bf;
+  --color-surface: #0a0f0c;
+  --color-panel: #12181580;
+  --color-panel-2: #1a2320b3;
+  --color-border: #2a3a32;
+  --color-muted: #7a8a82;
+  --color-parchment: #e9f0ec;
+  --color-teal: #4ade80;
   --color-amber: #f59e0b;
   --color-danger: #ef4444;
   --color-ok: #22c55e;
+
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
 /* Light theme overrides. `data-theme` is set on <html> by ThemeContext
    (and, before React mounts, by the inline script in index.html) — the
    values above stay the dark defaults. */
 :root[data-theme="light"] {
-  --color-surface: #f5f5f7;
-  --color-panel: #ffffff;
-  --color-panel-2: #f0f0f4;
-  --color-border: #e0e0e8;
-  --color-muted: #6b6b80;
-  --color-parchment: #1a1a1f;
-  --color-teal: #0d9488;
+  --color-surface: #f2f7f4;
+  --color-panel: #ffffffcc;
+  --color-panel-2: #eaf3edb3;
+  --color-border: #d7e5dc;
+  --color-muted: #64766c;
+  --color-parchment: #16201a;
+  --color-teal: #16a34a;
   --color-amber: #b45309;
   --color-danger: #dc2626;
-  --color-ok: #16a34a;
+  --color-ok: #15803d;
+
+  --shadow-glass: 0 8px 32px rgba(20, 40, 30, 0.12);
+}
+
+/* App-wide background: a fixed radial glow behind every glass panel,
+   dark-to-black with a green cast in dark mode, soft green-white in
+   light mode. Lives on <body> so it never scrolls with page content. */
+body {
+  background-color: var(--color-surface);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 15% -10%, color-mix(in srgb, var(--color-teal) 18%, transparent), transparent),
+    radial-gradient(ellipse 60% 50% at 100% 10%, color-mix(in srgb, var(--color-teal) 10%, transparent), transparent);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 /* Indeterminate progress bar used while a document is uploading/processing

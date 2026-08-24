@@ -6,6 +6,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { SkeletonTable } from "../components/Skeleton";
 import InlineError from "../components/InlineError";
 import TableScroll from "../components/TableScroll";
+import Card from "../components/Card";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type User = { id: number; email: string; full_name: string; role: string; is_active: boolean; created_at: string; };
@@ -73,7 +74,7 @@ export default function AdminUsers() {
         <h1 className="text-xl font-bold">{t("title")}</h1>
         <div className="flex items-center gap-2">
           {retrainMessage && <span className="text-xs text-muted">{retrainMessage}</span>}
-          <button onClick={handleRetrain} disabled={retraining} className="rounded bg-teal px-4 py-1.5 text-xs font-semibold text-surface disabled:opacity-50">
+          <button onClick={handleRetrain} disabled={retraining} className="rounded-full bg-teal px-4 py-1.5 text-xs font-semibold text-surface disabled:opacity-50">
             {retraining ? t("retraining") : t("retrainButton")}
           </button>
         </div>
@@ -82,7 +83,7 @@ export default function AdminUsers() {
       {loading ? (
         <SkeletonTable cols={5} />
       ) : (
-        <div className="rounded border border-border bg-panel overflow-hidden">
+        <Card className="overflow-hidden">
           <TableScroll>
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
@@ -98,7 +99,7 @@ export default function AdminUsers() {
                       <select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u, e.target.value)}
-                        className="text-xs bg-teal/10 text-teal rounded px-1.5 py-0.5 border-0 focus:outline-none"
+                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none"
                       >
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
@@ -137,7 +138,7 @@ export default function AdminUsers() {
             </tbody>
           </table>
           </TableScroll>
-        </div>
+        </Card>
       )}
       <ConfirmDialog
         open={deleteTarget !== null}

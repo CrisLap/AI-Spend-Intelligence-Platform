@@ -26,6 +26,7 @@ class ChatResponse(BaseModel):
 class ChatSessionOut(BaseModel):
     id: int
     summary: str | None = None
+    preview: str | None = None
     created_at: datetime
     updated_at: datetime
 

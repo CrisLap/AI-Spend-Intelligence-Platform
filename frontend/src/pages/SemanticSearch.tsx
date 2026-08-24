@@ -42,15 +42,15 @@ export default function SemanticSearch() {
       <h1 className="text-xl font-bold">{t("title")}</h1>
       <p className="text-xs text-muted">{t("description")}</p>
       <form onSubmit={handle} className="flex gap-2">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("placeholder")} aria-label={t("title")} className="flex-1 rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
-        <button type="submit" className="rounded bg-teal px-4 py-2 text-xs font-semibold text-surface">{t("search")}</button>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("placeholder")} aria-label={t("title")} className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+        <button type="submit" className="rounded-full bg-teal px-4 py-2 text-xs font-semibold text-surface">{t("search")}</button>
       </form>
       {error && <p className="text-xs text-danger">{error}</p>}
       {results && (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-muted">{t("resultsCount", { count: results.length })}</p>
           {results.map((r, i) => (
-            <div key={i} className="rounded border border-border bg-panel p-3">
+            <div key={i} className="rounded-2xl border border-border bg-panel backdrop-blur-md shadow-glass p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm">{r.description}</p>
                 <span className="text-xs text-muted">score {r.score}</span>

@@ -102,12 +102,12 @@ export default function AnomaliesPage() {
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("common:search")}
           aria-label={t("common:search")}
-          className="flex-1 min-w-[180px] rounded border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+          className="flex-1 min-w-[180px] rounded-full border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
         />
         <select
           value={sortBy}
           onChange={(e) => updateParam("sortBy", e.target.value)}
-          className="rounded border border-border bg-panel-2 px-2 py-1.5 text-sm text-parchment focus:outline-none focus:border-teal"
+          className="rounded-full border border-border bg-panel-2 px-2 py-1.5 text-sm text-parchment focus:outline-none focus:border-teal"
         >
           <option value="zscore">{t("sortBy.zscore")}</option>
           <option value="price">{t("sortBy.price")}</option>
@@ -130,12 +130,12 @@ export default function AnomaliesPage() {
           {list.length === 0 && <p className="text-ok text-sm">{urlSearch ? t("noResults") : t("empty")}</p>}
           <div className="flex flex-col gap-2">
             {list.map((a) => (
-              <div key={a.id} className={`rounded border p-3 ${a.resolved ? "border-border bg-panel" : "border-danger/30 bg-danger/5"}`}>
+              <div key={a.id} className={`rounded-2xl border p-3 backdrop-blur-md ${a.resolved ? "border-border bg-panel shadow-glass" : "border-danger/30 bg-danger/5"}`}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">{a.description}</p>
                   <div className="flex items-center gap-2 shrink-0">
-                    {a.resolved && <span className="text-xs bg-ok/10 text-ok px-2 py-0.5 rounded">{t("common:resolved")}</span>}
-                    <span className="text-xs bg-danger/10 text-danger px-2 py-0.5 rounded">{t("zscore", { value: a.zscore })}</span>
+                    {a.resolved && <span className="text-xs bg-ok/10 text-ok px-2 py-0.5 rounded-full">{t("common:resolved")}</span>}
+                    <span className="text-xs bg-danger/10 text-danger px-2 py-0.5 rounded-full">{t("zscore", { value: a.zscore })}</span>
                   </div>
                 </div>
                 <div className="flex gap-3 mt-1 text-xs text-muted">
@@ -157,7 +157,7 @@ export default function AnomaliesPage() {
         </>
       )}
       {hasMore && (
-        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
+        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded-full border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
           {loadingMore ? t("common:loading") : t("common:loadMore")}
         </button>
       )}

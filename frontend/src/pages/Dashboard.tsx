@@ -6,6 +6,7 @@ import { analytics } from "../api";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { SkeletonBlock } from "../components/Skeleton";
 import InlineError from "../components/InlineError";
+import Card from "../components/Card";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type Dash = {
@@ -17,7 +18,7 @@ type Dash = {
   top_categories: { category: string; total: number; percentage: number }[];
 };
 
-const COLORS = ["#2dd4bf", "#f59e0b", "#ef4444", "#22c55e", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
+const COLORS = ["#4ade80", "#f59e0b", "#ef4444", "#22c55e", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
 const PIE_SLICE_LIMIT = 6;
 
 export default function Dashboard() {
@@ -52,11 +53,11 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col gap-6">
         <h1 className="text-xl font-bold">{t("title")}</h1>
-        <div className="flex flex-col items-center justify-center gap-3 rounded border border-dashed border-border bg-panel p-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-panel backdrop-blur-md p-12 text-center">
           <Upload size={28} className="text-muted" aria-hidden="true" />
           <p className="text-sm font-semibold text-parchment">{t("emptyState.title")}</p>
           <p className="text-xs text-muted max-w-sm">{t("emptyState.description")}</p>
-          <Link to="/documents" className="mt-2 rounded bg-teal px-4 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
+          <Link to="/documents" className="mt-2 rounded-full bg-teal px-4 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
             {t("emptyState.cta")}
           </Link>
         </div>
@@ -86,7 +87,7 @@ export default function Dashboard() {
           { label: t("kpi.anomalies"), value: data.anomaly_count, color: data.anomaly_count > 0 ? "text-danger" : "text-ok", to: "/anomalies" },
           { label: t("kpi.duplicates"), value: data.duplicate_count, color: data.duplicate_count > 0 ? "text-amber" : "text-ok", to: "/duplicates" },
         ].map((k) => (
-          <Link key={k.label} to={k.to} className="rounded border border-border bg-panel p-4 transition-colors hover:border-teal">
+          <Link key={k.label} to={k.to} className="rounded-2xl border border-border bg-panel backdrop-blur-md p-4 transition-colors hover:border-teal">
             <p className="text-xs text-muted uppercase tracking-wide">{k.label}</p>
             <p className={`text-2xl font-bold mt-1 ${k.color}`}>{typeof k.value === "number" ? k.value.toLocaleString() : k.value}</p>
           </Link>
@@ -94,7 +95,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded border border-border bg-panel p-4">
+        <Card className="p-4">
           <h2 className="text-sm font-semibold mb-3">{t("spendByCategory")}</h2>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
@@ -104,23 +105,23 @@ export default function Dashboard() {
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
 
-        <div className="rounded border border-border bg-panel p-4">
+        <Card className="p-4">
           <h2 className="text-sm font-semibold mb-3">{t("monthlySpend")}</h2>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.spend_by_month}>
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b6b80" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#6b6b80" }} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#7a8a82" }} />
+              <YAxis tick={{ fontSize: 11, fill: "#7a8a82" }} />
               <Tooltip />
-              <Bar dataKey="total" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="total" fill="#4ade80" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded border border-border bg-panel p-4">
+        <Card className="p-4">
           <h2 className="text-sm font-semibold mb-3">{t("topSuppliers")}</h2>
           <div className="flex flex-col gap-2">
             {data.top_suppliers.map((s) => (
@@ -130,8 +131,8 @@ export default function Dashboard() {
               </Link>
             ))}
           </div>
-        </div>
-        <div className="rounded border border-border bg-panel p-4">
+        </Card>
+        <Card className="p-4">
           <h2 className="text-sm font-semibold mb-3">{t("topCategories")}</h2>
           <div className="flex flex-col gap-2">
             {data.top_categories.map((c) => (
@@ -141,7 +142,7 @@ export default function Dashboard() {
               </Link>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

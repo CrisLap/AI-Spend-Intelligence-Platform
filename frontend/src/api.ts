@@ -172,6 +172,9 @@ export const search = {
 export const chat = {
   send: (message: string, session_id?: number) =>
     request("/chat", { method: "POST", body: JSON.stringify({ message, session_id }) }),
+  listSessions: () => request("/chat/sessions"),
+  getMessages: (sessionId: number) => request(`/chat/sessions/${sessionId}/messages`),
+  deleteSession: (sessionId: number) => request(`/chat/sessions/${sessionId}`, { method: "DELETE" }),
 };
 
 export const analytics = {

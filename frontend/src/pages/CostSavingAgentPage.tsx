@@ -5,6 +5,7 @@ import { costSaving } from "../api";
 import AgentStepTimeline, { type AgentStep } from "../components/AgentStepTimeline";
 import RecommendationCard, { type Recommendation } from "../components/RecommendationCard";
 import Markdown from "../components/Markdown";
+import Card from "../components/Card";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type AgentRun = {
@@ -123,7 +124,7 @@ export default function CostSavingAgentPage() {
             key={type}
             onClick={() => handleAgentTypeChange(type)}
             disabled={running}
-            className={`rounded border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
               agentType === type ? "border-teal bg-teal/10 text-teal" : "border-border text-muted hover:text-parchment"
             }`}
           >
@@ -155,12 +156,12 @@ export default function CostSavingAgentPage() {
             disabled={running}
             placeholder={t("goalPlaceholder")}
             aria-label={t("goalPlaceholder")}
-            className="flex-1 rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+            className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
           />
           <button
             type="submit"
             disabled={running}
-            className="rounded bg-teal px-4 py-2 text-xs font-semibold text-surface disabled:opacity-50"
+            className="rounded-full bg-teal px-4 py-2 text-xs font-semibold text-surface disabled:opacity-50"
           >
             {running ? t("analyzing") : t("analyze")}
           </button>
@@ -171,7 +172,7 @@ export default function CostSavingAgentPage() {
 
       {(running || run) && (
         <div className="flex flex-col gap-4">
-          <div className="rounded border border-border bg-panel p-4">
+          <Card className="p-4">
             <h2 className="mb-3 text-sm font-semibold">{t("reasoning")}</h2>
             {/* Live runs already arrive one step at a time over SSE, so no
                 extra client-side staging is needed (animate=false); a run
@@ -182,7 +183,7 @@ export default function CostSavingAgentPage() {
                 <Markdown>{run.summary}</Markdown>
               </div>
             )}
-          </div>
+          </Card>
 
           {run && (
             <div>
@@ -204,7 +205,7 @@ export default function CostSavingAgentPage() {
       )}
 
       {history.length > 0 && (
-        <div className="rounded border border-border bg-panel p-4">
+        <Card className="p-4">
           <h2 className="mb-3 text-sm font-semibold">{t("history")}</h2>
           <div className="mb-3 flex flex-wrap gap-2">
             <button
@@ -229,7 +230,7 @@ export default function CostSavingAgentPage() {
               onChange={(e) => setHistorySearch(e.target.value)}
               placeholder={t("historyFilter.searchPlaceholder")}
               aria-label={t("historyFilter.searchPlaceholder")}
-              className="ml-auto min-w-[160px] rounded border border-border bg-panel-2 px-3 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+              className="ml-auto min-w-[160px] rounded-full border border-border bg-panel-2 px-3 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -252,7 +253,7 @@ export default function CostSavingAgentPage() {
               </button>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

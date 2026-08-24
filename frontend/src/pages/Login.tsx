@@ -36,19 +36,19 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
 
   return (
     <div className="flex h-screen items-center justify-center bg-surface">
-      <form onSubmit={handle} className="w-full max-w-sm rounded border border-border bg-panel p-6 flex flex-col gap-4">
+      <form onSubmit={handle} className="w-full max-w-sm rounded-2xl border border-border bg-panel backdrop-blur-md shadow-glass p-6 flex flex-col gap-4">
         <h1 className="text-lg font-bold text-teal">{t("common:tagline")}</h1>
         <p className="text-xs text-muted">{isRegister ? t("createAccount") : t("signInPrompt")}</p>
         {isRegister && (
           <>
             <label htmlFor={nameId} className="sr-only">{t("fullNamePlaceholder")}</label>
             <input id={nameId} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fullNamePlaceholder")} required
-              className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+              className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
           </>
         )}
         <label htmlFor={emailId} className="sr-only">{t("emailPlaceholder")}</label>
         <input id={emailId} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} required
-          className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+          className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
         <label htmlFor={passwordId} className="sr-only">{t("passwordPlaceholder")}</label>
         <input
           id={passwordId} type="password" value={password} onChange={(e) => setPassword(e.target.value)}
@@ -57,10 +57,10 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
           // 10-character rule was added may still have shorter passwords
           // already hashed in the DB, and this must not block their login.
           minLength={isRegister ? 10 : undefined}
-          className="rounded border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+          className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
         {isRegister && <p className="text-xs text-muted -mt-2">{t("passwordHint")}</p>}
         {error && <p className="text-xs text-danger">{error}</p>}
-        <button type="submit" className="rounded bg-teal py-2 text-sm font-semibold text-surface hover:opacity-90">
+        <button type="submit" className="rounded-full bg-teal py-2 text-sm font-semibold text-surface hover:opacity-90">
           {isRegister ? t("register") : t("signIn")}
         </button>
         <button type="button" onClick={() => setIsRegister(!isRegister)} className="text-xs text-muted hover:text-parchment">

@@ -13,5 +13,24 @@
     "cost_saving": "Cost Saving",
     "forecast": "Forecast",
     "contract_risk": "Contract Risk"
+  },
+  "history": {
+    "title": "Cronologia",
+    "newChat": "Nuova chat",
+    "today": "Oggi",
+    "yesterday": "Ieri",
+    "daysAgo_one": "{{count}} giorno fa",
+    "daysAgo_other": "{{count}} giorni fa",
+    "empty": "Nessuna chat precedente",
+    "delete": "Elimina chat",
+    "deleteConfirmTitle": "Eliminare questa chat?",
+    "deleteConfirmMessage": "La conversazione e i suoi messaggi verranno rimossi definitivamente.",
+    "deleteConfirmButton": "Elimina",
+    "deleteCancelButton": "Annulla"
+  },
+  "actions": {
+    "copy": "Copia",
+    "copied": "Copiato",
+    "regenerate": "Rigenera"
   }
 }

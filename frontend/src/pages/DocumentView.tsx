@@ -6,6 +6,7 @@ import { useToast } from "../context/ToastContext";
 import { SkeletonTable } from "../components/Skeleton";
 import InlineError from "../components/InlineError";
 import TableScroll from "../components/TableScroll";
+import Card from "../components/Card";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type Item = {
@@ -88,9 +89,9 @@ export default function DocumentView() {
       <div className="flex items-center gap-3">
         <button onClick={() => navigate("/documents")} className="text-xs text-muted hover:text-parchment">{t("back")}</button>
         <h1 className="text-xl font-bold">{doc.original_name}</h1>
-        <span className={`text-xs px-2 py-0.5 rounded ${doc.status === "classified" ? "bg-ok/10 text-ok" : "bg-amber/10 text-amber"}`}>{doc.status}</span>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${doc.status === "classified" ? "bg-ok/10 text-ok" : "bg-amber/10 text-amber"}`}>{doc.status}</span>
       </div>
-      <div className="rounded border border-border bg-panel overflow-hidden">
+      <Card className="overflow-hidden">
         <TableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
@@ -110,7 +111,7 @@ export default function DocumentView() {
                       <select
                         value={pendingCategory[item.id] ?? item.category_label ?? ""}
                         onChange={(e) => setPendingCategory((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        className="text-xs bg-teal/10 text-teal rounded px-1.5 py-0.5 border-0 focus:outline-none"
+                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none"
                       >
                         {!item.category_label && <option value="">{t("notAvailable")}</option>}
                         {CATEGORIES.map((c) => <option key={c} value={c}>{t(c, { ns: "categories", defaultValue: c })}</option>)}
@@ -130,7 +131,7 @@ export default function DocumentView() {
                   <td className="p-3 text-xs text-muted">{item.confidence ? `${(item.confidence * 100).toFixed(0)}%` : "-"}</td>
                   <td className="p-3">
                     {item.is_anomaly ? (
-                      <span className="text-xs bg-danger/10 text-danger px-2 py-0.5 rounded" title={item.anomaly_reason || ""}>{t("anomalyBadge")}</span>
+                      <span className="text-xs bg-danger/10 text-danger px-2 py-0.5 rounded-full" title={item.anomaly_reason || ""}>{t("anomalyBadge")}</span>
                     ) : <span className="text-xs text-ok">{t("okBadge")}</span>}
                   </td>
                   <td className="p-3 text-right whitespace-nowrap">
@@ -155,9 +156,9 @@ export default function DocumentView() {
                           onChange={(e) => setFeedbackComment(e.target.value)}
                           placeholder={t("feedbackPlaceholder")}
                           aria-label={t("feedbackPlaceholder")}
-                          className="flex-1 rounded border border-border bg-panel px-2 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+                          className="flex-1 rounded-full border border-border bg-panel px-2 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
                         />
-                        <button onClick={() => submitFeedback(item)} className="text-xs rounded bg-amber px-3 py-1 font-semibold text-surface">
+                        <button onClick={() => submitFeedback(item)} className="text-xs rounded-full bg-amber px-3 py-1 font-semibold text-surface">
                           {t("submitFeedback")}
                         </button>
                       </div>
@@ -170,7 +171,7 @@ export default function DocumentView() {
           </tbody>
         </table>
         </TableScroll>
-      </div>
+      </Card>
     </div>
   );
 }

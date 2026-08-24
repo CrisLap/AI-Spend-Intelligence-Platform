@@ -68,7 +68,7 @@ numbers.
 | 1 | Document Intelligence | OCR (Tesseract), PDF/Excel/CSV/image parsing, LLM extraction → structured JSON |
 | 2 | Spend Classification | 3-tier classification (rule-based → embedding similarity → LLM) against a UNSPSC-inspired custom taxonomy |
 | 3 | Semantic Search | Natural-language vector search across all spend line items |
-| 4 | AI Chat | Retrieval-Augmented Generation (RAG) chat with a real ReAct loop over two tools - semantic `search_spend` for open-ended lookups, and a deterministic `top_expenses` ranking for "highest/biggest" questions a similarity search can't reliably answer - source citations, conversation memory (trimming + summarization), guardrails |
+| 4 | AI Chat | Retrieval-Augmented Generation (RAG) chat with a real ReAct loop over two tools - semantic `search_spend` for open-ended lookups, and a deterministic `top_expenses` ranking for "highest/biggest" questions a similarity search can't reliably answer - source citations, conversation memory (trimming + summarization), guardrails, and a persistent chat history (`GET /chat/sessions`) the frontend lets a user browse, resume, and delete |
 | 5 | Duplicate Detection | Exact (supplier+invoice+amount) + semantic (embedding similarity) matching |
 | 6 | Anomaly Detection | Per-category z-score outlier detection on price, quantity, and new-supplier alerts |
 | 7 | Dashboard | Real-time charts: spend by category/month, top suppliers, KPI cards |
@@ -284,7 +284,7 @@ cd frontend
 npm test
 ```
 
-Backend: 143 pytest tests across 26 files (`backend/tests/`). Frontend:
+Backend: 157 pytest tests across 29 files (`backend/tests/`). Frontend:
 Vitest + React Testing Library, covering `AgentStepTimeline` and
 `RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
 
@@ -338,14 +338,14 @@ backend/
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
   scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
-  tests/               → 143 pytest tests (26 files)
+  tests/               → 157 pytest tests (29 files)
   Dockerfile
 frontend/
   src/
     pages/             → Login, Dashboard, Documents, DocumentView, Classification,
                           SemanticSearch, ChatPage, CostSavingAgentPage, AnomaliesPage,
                           DuplicatesPage, AdminUsers (11 pages)
-    components/        → Layout, AgentStepTimeline, RecommendationCard, ForecastChart,
+    components/        → Layout, Card, AgentStepTimeline, RecommendationCard, ForecastChart,
                           BackendWakingBanner, ConfirmDialog, ErrorBoundary, InlineError,
                           Markdown, Skeleton, TableScroll, ToastContainer
     hooks/             → useBackendWaking, useDocumentTitle

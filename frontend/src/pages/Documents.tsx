@@ -8,6 +8,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { SkeletonTable } from "../components/Skeleton";
 import InlineError from "../components/InlineError";
 import TableScroll from "../components/TableScroll";
+import Card from "../components/Card";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type Doc = { id: number; original_name: string; doc_type: string; status: string; created_at: string; };
@@ -172,7 +173,7 @@ export default function Documents() {
           setDragActive(false);
           pickFile(e.dataTransfer.files?.[0]);
         }}
-        className={`rounded border-2 border-dashed p-4 flex flex-col gap-3 transition-colors ${dragActive ? "border-teal bg-teal/5" : "border-border"}`}
+        className={`rounded-2xl border-2 border-dashed bg-panel backdrop-blur-md p-4 flex flex-col gap-3 transition-colors ${dragActive ? "border-teal bg-teal/5" : "border-border"}`}
       >
         {!selectedFile ? (
           <label className="flex flex-col items-center gap-1 py-4 cursor-pointer text-center">
@@ -208,7 +209,7 @@ export default function Documents() {
               <button
                 onClick={handleUpload}
                 disabled={uploading}
-                className="rounded bg-teal px-4 py-1.5 text-xs font-semibold text-surface disabled:opacity-50"
+                className="rounded-full bg-teal px-4 py-1.5 text-xs font-semibold text-surface disabled:opacity-50"
               >
                 {uploading ? t(`documents:stage${stage === "uploading" ? "Uploading" : "Processing"}`) : t("documents:uploadAndAnalyze")}
               </button>
@@ -229,12 +230,12 @@ export default function Documents() {
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("common:search")}
           aria-label={t("common:search")}
-          className="flex-1 min-w-[180px] rounded border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+          className="flex-1 min-w-[180px] rounded-full border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
         />
         <select
           value={status}
           onChange={(e) => updateParam("status", e.target.value)}
-          className="rounded border border-border bg-panel-2 px-2 py-1.5 text-sm text-parchment focus:outline-none focus:border-teal"
+          className="rounded-full border border-border bg-panel-2 px-2 py-1.5 text-sm text-parchment focus:outline-none focus:border-teal"
         >
           <option value="">{t("documents:statusOptions.all")}</option>
           <option value="uploaded">{t("documents:statusOptions.uploaded")}</option>
@@ -249,7 +250,7 @@ export default function Documents() {
       {loading ? (
         <SkeletonTable cols={5} />
       ) : (
-        <div className="rounded border border-border bg-panel overflow-hidden">
+        <Card className="overflow-hidden">
           <TableScroll>
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
@@ -264,7 +265,7 @@ export default function Documents() {
                   <tr key={d.id} className="border-b border-border/60 hover:bg-panel-2/50 cursor-pointer" onClick={() => navigate(`/documents/${d.id}`)}>
                     <td className="p-3">{d.original_name}</td>
                     <td className="p-3 text-muted">{d.doc_type}</td>
-                    <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${d.status === "classified" ? "bg-ok/10 text-ok" : d.status === "failed" ? "bg-danger/10 text-danger" : "bg-amber/10 text-amber"}`}>{d.status}</span></td>
+                    <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded-full ${d.status === "classified" ? "bg-ok/10 text-ok" : d.status === "failed" ? "bg-danger/10 text-danger" : "bg-amber/10 text-amber"}`}>{d.status}</span></td>
                     <td className="p-3 text-muted text-xs">{new Date(d.created_at).toLocaleDateString()}</td>
                     <td className="p-3 text-right">
                       <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(d); }} className="text-xs text-danger hover:underline">{t("documents:delete")}</button>
@@ -275,10 +276,10 @@ export default function Documents() {
               </tbody>
             </table>
           </TableScroll>
-        </div>
+        </Card>
       )}
       {hasMore && (
-        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
+        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded-full border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
           {loadingMore ? t("common:loading") : t("common:loadMore")}
         </button>
       )}

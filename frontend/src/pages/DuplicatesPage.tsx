@@ -91,7 +91,7 @@ export default function DuplicatesPage() {
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("common:search")}
           aria-label={t("common:search")}
-          className="flex-1 min-w-[180px] rounded border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+          className="flex-1 min-w-[180px] rounded-full border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
         />
         <label className="flex items-center gap-1.5 text-xs text-muted">
           <input
@@ -115,11 +115,11 @@ export default function DuplicatesPage() {
           {!error && groups.length === 0 && <p className="text-ok text-sm">{urlSearch ? t("noResults") : t("empty")}</p>}
           <div className="flex flex-col gap-4">
             {groups.map((g) => (
-              <div key={g.id} className={`rounded border p-3 ${g.resolved ? "border-border bg-panel" : "border-amber/30 bg-amber/5"}`}>
+              <div key={g.id} className={`rounded-2xl border p-3 backdrop-blur-md ${g.resolved ? "border-border bg-panel shadow-glass" : "border-amber/30 bg-amber/5"}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs bg-amber/10 text-amber px-2 py-0.5 rounded">{t("group")}</span>
+                  <span className="text-xs bg-amber/10 text-amber px-2 py-0.5 rounded-full">{t("group")}</span>
                   <span className="text-xs text-muted">{g.reason}</span>
-                  {g.resolved && <span className="text-xs bg-ok/10 text-ok px-2 py-0.5 rounded">{t("common:resolved")}</span>}
+                  {g.resolved && <span className="text-xs bg-ok/10 text-ok px-2 py-0.5 rounded-full">{t("common:resolved")}</span>}
                 </div>
                 <div className="flex flex-col gap-1">
                   {g.items.map((item) => (
@@ -146,7 +146,7 @@ export default function DuplicatesPage() {
         </>
       )}
       {hasMore && (
-        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
+        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded-full border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
           {loadingMore ? t("common:loading") : t("common:loadMore")}
         </button>
       )}

@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle, Bot, FileText, LayoutDashboard, Link2, Menu, MessageSquare,
-  Moon, Search, ShieldCheck, Sun, Tags, X,
+  Moon, Search, ShieldCheck, Sparkles, Sun, Tags, X,
 } from "lucide-react";
 import { type User } from "../App";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
@@ -34,76 +34,84 @@ export default function Layout({ children, user, onLogout }: { children: React.R
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen">
-      <div className="md:hidden fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-border bg-panel px-4 py-3">
-        <span className="text-sm font-bold tracking-wider text-teal uppercase">{t("appName")}</span>
-        <button onClick={() => setSidebarOpen(true)} aria-label={t("openMenu")} className="text-parchment">
-          <Menu size={20} aria-hidden="true" />
-        </button>
-      </div>
-
-      {sidebarOpen && (
-        <div
-          className="md:hidden fixed inset-0 z-40 bg-surface/70"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      <aside
-        className={`w-60 border-r border-border bg-panel p-4 flex flex-col gap-1 shrink-0 fixed inset-y-0 left-0 z-50 transform overflow-y-auto transition-transform duration-200 md:relative md:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-sm font-bold tracking-wider text-teal uppercase">{t("appName")}</h1>
-            <p className="text-xs text-muted mt-1">{t("tagline")}</p>
-          </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            aria-label={t("closeMenu")}
-            className="md:hidden text-muted hover:text-parchment"
-          >
-            <X size={18} aria-hidden="true" />
+    <div className="flex min-h-screen flex-col">
+      {/* Top bar: app identity on the left, theme/language/account controls
+          on the right - visible at every breakpoint, unlike the old
+          mobile-only bar. */}
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-panel backdrop-blur-md px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSidebarOpen(true)} aria-label={t("openMenu")} className="md:hidden text-parchment">
+            <Menu size={20} aria-hidden="true" />
           </button>
+          <span className="flex items-center gap-2 text-sm font-bold tracking-wider text-teal uppercase">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal/15 text-teal">
+              <Sparkles size={16} aria-hidden="true" />
+            </span>
+            {t("appName")}
+          </span>
         </div>
-        {nav.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.to === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${isActive ? "bg-teal/10 text-teal" : "text-muted hover:text-parchment hover:bg-panel-2"}`
-            }>
-            <n.icon size={16} aria-hidden="true" /> {t(n.labelKey)}
-          </NavLink>
-        ))}
-        <div className="mt-auto pt-4 border-t border-border">
-          <div className="mb-2 flex items-center gap-1">
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1">
             {SUPPORTED_LANGUAGES.map((lng: SupportedLanguage) => (
               <button
                 key={lng}
                 onClick={() => i18n.changeLanguage(lng)}
-                className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold transition-colors ${
                   i18n.resolvedLanguage === lng ? "bg-teal/10 text-teal" : "text-muted hover:text-parchment"
                 }`}
               >
                 {t(`language.${lng}`)}
               </button>
             ))}
-            <button
-              onClick={toggleTheme}
-              aria-label={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
-              title={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
-              className="ml-auto rounded p-1 text-muted hover:text-parchment transition-colors"
-            >
-              {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
-            </button>
           </div>
-          <p className="text-xs text-muted">{user.full_name}</p>
-          <p className="text-xs text-muted/60">{user.role}</p>
-          <button onClick={onLogout} className="mt-2 text-xs text-danger hover:underline">{t("logout")}</button>
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
+            title={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
+            className="rounded-full p-2 text-muted hover:text-parchment hover:bg-panel-2 transition-colors"
+          >
+            {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
+          </button>
+          <div className="hidden sm:flex flex-col items-end leading-tight">
+            <span className="text-xs text-parchment">{user.full_name}</span>
+            <span className="text-[10px] text-muted/70">{user.role}</span>
+          </div>
+          <button onClick={onLogout} className="text-xs text-danger hover:underline">{t("logout")}</button>
         </div>
-      </aside>
-      <main className="flex-1 p-6 overflow-auto mt-14 md:mt-0">{children}</main>
+      </header>
+
+      <div className="flex flex-1">
+        {sidebarOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-surface/70"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        <aside
+          className={`w-60 border-r border-border bg-panel backdrop-blur-md p-4 flex flex-col gap-1 shrink-0 fixed inset-y-0 left-0 z-50 top-14 transform overflow-y-auto transition-transform duration-200 md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] md:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <button
+            onClick={() => setSidebarOpen(false)}
+            aria-label={t("closeMenu")}
+            className="md:hidden self-end mb-2 text-muted hover:text-parchment"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+          {nav.map((n) => (
+            <NavLink key={n.to} to={n.to} end={n.to === "/"}
+              className={({ isActive }) =>
+                `flex items-center gap-2 rounded-full px-3 py-2 text-sm transition-colors ${isActive ? "bg-teal text-surface font-semibold" : "text-muted hover:text-parchment hover:bg-panel-2"}`
+              }>
+              <n.icon size={16} aria-hidden="true" /> {t(n.labelKey)}
+            </NavLink>
+          ))}
+        </aside>
+        <main className="flex-1 p-6 overflow-auto">{children}</main>
+      </div>
     </div>
   );
 }
