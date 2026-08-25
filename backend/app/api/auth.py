@@ -20,15 +20,18 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    # Public self-registration always creates a "buyer" account. Roles with
-    # elevated privileges (finance, admin) can only be granted afterwards by
-    # an existing admin via PATCH /users/{id}/role - never chosen by the
-    # user creating their own account.
+    # Self-registration may pick buyer or finance - those two roles only
+    # determine which shared spend-data pool the account joins. Any other
+    # requested value (including "admin") is silently coerced to "buyer"
+    # rather than rejected, matching schemas/user.py::UserCreate.role's
+    # docstring - "admin" can only be granted afterwards by an existing
+    # admin via PATCH /users/{id}/role.
+    role = payload.role if payload.role in ("buyer", "finance") else "buyer"
     user = User(
         email=payload.email,
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
-        role="buyer",
+        role=role,
     )
     db.add(user)
     db.commit()

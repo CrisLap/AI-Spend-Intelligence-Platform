@@ -50,7 +50,7 @@ def _build_react_call(
     history_summary: str | None,
     lang: str,
     db: Session | None = None,
-    user_id: int | None = None,
+    user_id: int | list[int] | None = None,
 ) -> dict:
     """Shared setup between answer_with_react() (batch) and
     answer_with_react_stream() (SSE) - both run the identical ReAct
@@ -75,9 +75,13 @@ def _build_react_call(
     )
     # top_expenses needs direct DB access (a real ORDER BY total DESC query,
     # not a semantic search), so it's only available when the caller passes
-    # db/user_id - callers/tests that don't need it (e.g. unit tests driving
-    # the ReAct loop in isolation) keep the single-tool set unchanged.
-    has_top_expenses = db is not None and user_id is not None
+    # a db - callers/tests that don't need it (e.g. unit tests driving the
+    # ReAct loop in isolation) keep the single-tool set unchanged. user_id
+    # is NOT part of this check: None is a legitimate resolved value (the
+    # admin's unfiltered visibility scope, see get_visible_user_ids), not
+    # just "not provided" - top_expenses_tool_for already handles user_id
+    # being int, list[int], or None correctly.
+    has_top_expenses = db is not None
     tools = [search_tool, top_expenses_tool_for(user_id, db)] if has_top_expenses else [search_tool]
     role_description = _ROLE_DESCRIPTION + (_TOP_EXPENSES_DIRECTIVE if has_top_expenses else "")
     return {
@@ -109,7 +113,7 @@ def answer_with_react(
     history_summary: str | None = None,
     lang: str = "en",
     db: Session | None = None,
-    user_id: int | None = None,
+    user_id: int | list[int] | None = None,
 ) -> str:
     """Runs a genuine ReAct loop: the model can issue further search_spend
     actions (via retrieve_fn) before committing to a Final Answer, instead of
@@ -142,7 +146,7 @@ def answer_with_react_stream(
     history_summary: str | None = None,
     lang: str = "en",
     db: Session | None = None,
-    user_id: int | None = None,
+    user_id: int | list[int] | None = None,
 ) -> Iterator[tuple[ReactStep, str | None]]:
     """Same pipeline as answer_with_react(), but yields each ReAct step as it
     happens instead of returning only the final answer - the chat

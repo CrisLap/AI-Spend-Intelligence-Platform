@@ -36,8 +36,11 @@ export default function AdminUsers() {
   useEffect(load, []);
 
   function handleRoleChange(u: User, role: string) {
+    // Promoting a user to admin transfers the role server-side (the
+    // previous admin is demoted in the same request) - refetch the whole
+    // list instead of patching just this row, so that demotion shows up too.
     users.updateRole(u.id, role)
-      .then((updated: User) => setList((prev) => prev.map((x) => (x.id === u.id ? updated : x))))
+      .then(load)
       .catch((err: any) => showToast(err.message, "error"));
   }
 

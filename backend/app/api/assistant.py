@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, get_ui_language
+from app.core.deps import get_current_user, get_ui_language, get_visible_user_ids
 from app.core.rate_limit import limiter
 from app.models.user import User
 from app.schemas.assistant import AssistantChatResult, AssistantRequest, AssistantResponse, AssistantSuggestion
@@ -58,7 +58,9 @@ def route_message(
             ),
         )
 
-    result = answer_question(payload.message, payload.session_id, user.id, lang=lang)
+    result = answer_question(
+        payload.message, payload.session_id, user.id, lang=lang, visible_user_ids=get_visible_user_ids(user, db)
+    )
     return AssistantResponse(
         intent="chat",
         method=classification["method"],
@@ -117,6 +119,8 @@ def route_message_stream(
         )
 
     return StreamingResponse(
-        answer_question_stream(message, session_id, user.id, lang=lang),
+        answer_question_stream(
+            message, session_id, user.id, lang=lang, visible_user_ids=get_visible_user_ids(user, db)
+        ),
         media_type="text/event-stream", headers={"Cache-Control": "no-cache"},
     )

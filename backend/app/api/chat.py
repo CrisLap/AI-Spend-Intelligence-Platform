@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, get_ui_language
+from app.core.deps import get_current_user, get_ui_language, get_visible_user_ids
 from app.core.rate_limit import limiter
 from app.models.chat import ChatMessage, ChatSession
 from app.models.user import User
@@ -19,9 +19,12 @@ router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_curr
 @router.post("", response_model=ChatResponse)
 @limiter.limit("20/minute")
 def chat(
-    request: Request, payload: ChatRequest, user: User = Depends(get_current_user), lang: str = Depends(get_ui_language)
+    request: Request, payload: ChatRequest, user: User = Depends(get_current_user), lang: str = Depends(get_ui_language),
+    db: Session = Depends(get_db),
 ):
-    return answer_question(payload.message, payload.session_id, user.id, lang=lang)
+    return answer_question(
+        payload.message, payload.session_id, user.id, lang=lang, visible_user_ids=get_visible_user_ids(user, db)
+    )
 
 
 @router.get("/sessions", response_model=list[ChatSessionOut])

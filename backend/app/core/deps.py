@@ -35,6 +35,26 @@ def require_role(*roles: str):
     return checker
 
 
+def get_visible_user_ids(user: User, db: Session) -> list[int] | None:
+    """Ids of the users whose spend data `user` is allowed to see: every
+    user sharing the same role (buyer sees buyer, finance sees finance),
+    or None for admin - meaning no filter, admin sees everything. This is
+    the single sharing boundary for all spend data (documents, line items,
+    dashboard, search, duplicates, anomalies, contracts); chat sessions and
+    agent-run history stay scoped to the individual user, not this."""
+    if user.role == "admin":
+        return None
+    return [r[0] for r in db.query(User.id).filter(User.role == user.role).all()]
+
+
+def visible_user_ids(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> list[int] | None:
+    """FastAPI dependency wrapper around get_visible_user_ids, for routes
+    that just need the scope and not the User object separately."""
+    return get_visible_user_ids(user, db)
+
+
 def get_ui_language(x_ui_language: str | None = Header(default=None, alias="X-UI-Language")) -> str:
     """The frontend's currently-selected UI language (see frontend/src/api.ts,
     which sends this on every request), used to steer LLM output language and

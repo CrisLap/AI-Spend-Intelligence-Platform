@@ -35,8 +35,10 @@ def test_feedback_overrides_rule_based_match():
         assert before["category"] == "Computer Equipment & Accessories"
 
         # User corrects it: this laptop purchase was actually for the legal
-        # team's professional services budget, not IT hardware.
-        seed_feedback_exemplars([(desc, "Professional & Consulting Services")])
+        # team's professional services budget, not IT hardware. classify_description
+        # defaults to role="buyer" (see calls above/below), so the exemplar
+        # must target that same pool to be picked back up.
+        seed_feedback_exemplars([(desc, "Professional & Consulting Services", "buyer")])
 
         after = classify_description(desc)
         assert after["category"] == "Professional & Consulting Services"

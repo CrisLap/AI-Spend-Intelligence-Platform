@@ -162,6 +162,14 @@ def test_build_react_call_only_adds_top_expenses_tool_when_db_and_user_id_given(
     assert [t.name for t in with_db["tools"]] == ["search_spend", "top_expenses"]
 
 
+def test_build_react_call_adds_top_expenses_tool_for_admin_unfiltered_scope(db):
+    """user_id=None with a real db is the admin's resolved visibility scope
+    (get_visible_user_ids returns None = no filter), not "no db context" -
+    the admin must still get the top_expenses tool, same as buyer/finance."""
+    with_admin_scope = chat_react._build_react_call("q", [], None, None, None, "en", db, None)
+    assert [t.name for t in with_admin_scope["tools"]] == ["search_spend", "top_expenses"]
+
+
 def test_react_loop_can_call_top_expenses_via_structured_tool_call(db, monkeypatch):
     owner = _make_user(db, "toprct@test.com")
     _make_item(db, owner, "Due diligence", "Deloitte Consulting", 12000.0)

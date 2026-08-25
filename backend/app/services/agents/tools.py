@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+# user_id throughout this module accepts a single id, a list of ids (the
+# caller's visible role-scope, see core/deps.py::get_visible_user_ids), or
+# None (no filter - admin).
+
 from app.models.document import Document, LineItem
 from app.services.agents.react_engine import Tool
 from app.services.analytics import forecast_next_month_spend, get_dashboard, get_supplier_variance
@@ -11,7 +15,7 @@ from app.services.contract_intelligence import search_contracts
 _IGNORED_INPUTS = {"", "all", "*", "any", "n/a", "none"}
 
 
-def _spend_overview_tool(user_id: int, db: Session):
+def _spend_overview_tool(user_id: int | list[int] | None, db: Session):
     def _call(_query: str) -> str:
         data = get_dashboard(user_id=user_id, db=db)
         suppliers = ", ".join(f"{s['supplier']} (€{s['total']:,.2f})" for s in data["top_suppliers"][:5])
@@ -29,7 +33,7 @@ def _spend_overview_tool(user_id: int, db: Session):
     return _call
 
 
-def _supplier_variance_tool(user_id: int, db: Session):
+def _supplier_variance_tool(user_id: int | list[int] | None, db: Session):
     def _call(query: str) -> str:
         variances = get_supplier_variance(user_id=user_id, db=db)
         if not variances:
@@ -53,9 +57,13 @@ def _supplier_variance_tool(user_id: int, db: Session):
     return _call
 
 
-def _anomaly_scan_tool(user_id: int, db: Session):
+def _anomaly_scan_tool(user_id: int | list[int] | None, db: Session):
     def _call(_query: str) -> str:
-        items = db.query(LineItem).join(Document).filter(Document.user_id == user_id).all()
+        query = db.query(LineItem).join(Document)
+        if user_id is not None:
+            ids = [user_id] if isinstance(user_id, int) else user_id
+            query = query.filter(Document.user_id.in_(ids))
+        items = query.all()
         if not items:
             return "No line items found for this user."
         results = detect_anomalies(items, db=db)
@@ -70,26 +78,26 @@ def _anomaly_scan_tool(user_id: int, db: Session):
     return _call
 
 
-def _contract_search_tool(user_id: int, db: Session):
+def _contract_search_tool(user_id: int | list[int] | None, db: Session):
     def _call(query: str) -> list[dict]:
         return search_contracts(query, top_k=5, user_id=user_id, db=db)
 
     return _call
 
 
-def _top_expenses_tool(user_id: int, db: Session):
+def _top_expenses_tool(user_id: int | list[int] | None, db: Session):
     def _call(query: str) -> str:
         q = (query or "").strip()
         n = int(q) if q.isdigit() else 5
         n = max(1, min(n, 20))
-        rows = (
+        rows_query = (
             db.query(LineItem, Document.original_name)
             .join(Document, LineItem.document_id == Document.id)
-            .filter(Document.user_id == user_id)
-            .order_by(LineItem.total.desc())
-            .limit(n)
-            .all()
         )
+        if user_id is not None:
+            ids = [user_id] if isinstance(user_id, int) else user_id
+            rows_query = rows_query.filter(Document.user_id.in_(ids))
+        rows = rows_query.order_by(LineItem.total.desc()).limit(n).all()
         if not rows:
             return "No line items found for this user."
         return "\n".join(
@@ -101,7 +109,7 @@ def _top_expenses_tool(user_id: int, db: Session):
     return _call
 
 
-def top_expenses_tool_for(user_id: int, db: Session) -> Tool:
+def top_expenses_tool_for(user_id: int | list[int] | None, db: Session) -> Tool:
     return Tool(
         name="top_expenses",
         description=(
@@ -114,7 +122,7 @@ def top_expenses_tool_for(user_id: int, db: Session) -> Tool:
     )
 
 
-def _forecast_tool(user_id: int, db: Session):
+def _forecast_tool(user_id: int | list[int] | None, db: Session):
     def _call(_query: str) -> str:
         result = forecast_next_month_spend(user_id=user_id, db=db)
         if not result["available"]:
@@ -129,7 +137,7 @@ def _forecast_tool(user_id: int, db: Session):
     return _call
 
 
-def contract_search_tool_for(user_id: int, db: Session) -> Tool:
+def contract_search_tool_for(user_id: int | list[int] | None, db: Session) -> Tool:
     return Tool(
         name="contract_search",
         description=(
@@ -140,7 +148,7 @@ def contract_search_tool_for(user_id: int, db: Session) -> Tool:
     )
 
 
-def forecast_tool_for(user_id: int, db: Session) -> Tool:
+def forecast_tool_for(user_id: int | list[int] | None, db: Session) -> Tool:
     return Tool(
         name="forecast_spend",
         description=(
@@ -151,7 +159,7 @@ def forecast_tool_for(user_id: int, db: Session) -> Tool:
     )
 
 
-def build_tools(user_id: int, db: Session) -> list[Tool]:
+def build_tools(user_id: int | list[int] | None, db: Session) -> list[Tool]:
     """The Cost Saving Agent's tool registry - each tool wraps an existing,
     already-tested service function so every number the agent reasons over
     is a real query result, not a fabricated figure."""
@@ -185,7 +193,7 @@ def build_tools(user_id: int, db: Session) -> list[Tool]:
     ]
 
 
-def build_forecast_tools(user_id: int, db: Session) -> list[Tool]:
+def build_forecast_tools(user_id: int | list[int] | None, db: Session) -> list[Tool]:
     """The Forecast Agent's tool registry: just the forecast itself, plus
     the same spend overview the Cost Saving Agent uses for context - kept
     deliberately narrow so this agent stays focused on one question."""
@@ -196,7 +204,7 @@ def build_forecast_tools(user_id: int, db: Session) -> list[Tool]:
     )]
 
 
-def build_contract_risk_tools(user_id: int, db: Session) -> list[Tool]:
+def build_contract_risk_tools(user_id: int | list[int] | None, db: Session) -> list[Tool]:
     """The Contract Risk Agent's tool registry: reuses the exact same
     contract_search tool the Cost Saving Agent uses for renewal clauses -
     only the system prompt and search queries around it differ (see

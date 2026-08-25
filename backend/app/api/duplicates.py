@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_visible_user_ids
 from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
 from app.models.user import User
 from app.schemas.document import ResolvedUpdate
@@ -19,8 +19,10 @@ def _own_group_ids_query(db: Session, user: User, search: str | None = None):
         db.query(LineItemGroupItem.group_id)
         .join(LineItem, LineItemGroupItem.line_item_id == LineItem.id)
         .join(Document, LineItem.document_id == Document.id)
-        .filter(Document.user_id == user.id)
     )
+    scope = get_visible_user_ids(user, db)
+    if scope is not None:
+        q = q.filter(Document.user_id.in_(scope))
     if search:
         like = f"%{search}%"
         q = q.filter(or_(LineItem.description.ilike(like), LineItem.supplier.ilike(like)))
@@ -36,14 +38,14 @@ def list_duplicates(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # Only groups that contain at least one line item belonging to the
-    # current user's own documents (previously this returned every user's
-    # duplicate groups, regardless of ownership).
+    # Only groups that contain at least one line item within the current
+    # user's visible scope (their own role's pool, or everything for admin).
     own_group_ids = _own_group_ids_query(db, user, search)
     query = db.query(LineItemGroup).filter(LineItemGroup.id.in_(own_group_ids))
     if not include_resolved:
         query = query.filter(LineItemGroup.resolved == False)  # noqa: E712
     groups = query.order_by(LineItemGroup.created_at.desc()).offset(skip).limit(limit).all()
+    scope = get_visible_user_ids(user, db)
     result = []
     for g in groups:
         group_item_links = db.query(LineItemGroupItem).filter(
@@ -51,12 +53,14 @@ def list_duplicates(
         ).all()
         group_items = []
         for gi in group_item_links:
-            item = (
+            item_query = (
                 db.query(LineItem)
                 .join(Document, LineItem.document_id == Document.id)
-                .filter(LineItem.id == gi.line_item_id, Document.user_id == user.id)
-                .first()
+                .filter(LineItem.id == gi.line_item_id)
             )
+            if scope is not None:
+                item_query = item_query.filter(Document.user_id.in_(scope))
+            item = item_query.first()
             if item:
                 group_items.append({
                     "id": item.id,

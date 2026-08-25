@@ -7,7 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_visible_user_ids
 from app.models.document import Document, LineItem
 from app.models.user import User
 from app.schemas.document import ResolvedUpdate
@@ -32,10 +32,12 @@ def list_anomalies(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    scope = get_visible_user_ids(user, db)
     query = db.query(LineItem).join(Document).filter(
-        Document.user_id == user.id,
         LineItem.is_anomaly == True,  # noqa: E712
     )
+    if scope is not None:
+        query = query.filter(Document.user_id.in_(scope))
     if not include_resolved:
         query = query.filter(LineItem.anomaly_resolved == False)  # noqa: E712
     if search:
@@ -71,10 +73,11 @@ def resolve_anomaly(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    item = db.query(LineItem).join(Document).filter(
-        LineItem.id == line_item_id,
-        Document.user_id == user.id,
-    ).first()
+    scope = get_visible_user_ids(user, db)
+    query = db.query(LineItem).join(Document).filter(LineItem.id == line_item_id)
+    if scope is not None:
+        query = query.filter(Document.user_id.in_(scope))
+    item = query.first()
     if not item:
         raise HTTPException(status_code=404, detail="Anomaly not found")
     item.anomaly_resolved = body.resolved

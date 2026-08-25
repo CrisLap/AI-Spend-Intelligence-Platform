@@ -107,7 +107,22 @@ def delete_line_items(line_item_ids: list[int]) -> None:
         logger.exception("Failed to delete line items %s from Qdrant", line_item_ids)
 
 
-def search(vector: np.ndarray, top_k: int = 10, user_id: int | None = None) -> list[dict] | None:
+def _user_id_filter(user_id: int | list[int] | None) -> qmodels.Filter | None:
+    """user_id accepts a single id, a list of ids (the caller's visible
+    role-scope, see core/deps.py::get_visible_user_ids), or None (no
+    filter - admin, or an internal unscoped call)."""
+    if user_id is None:
+        return None
+    if isinstance(user_id, int):
+        return qmodels.Filter(
+            must=[qmodels.FieldCondition(key="user_id", match=qmodels.MatchValue(value=user_id))]
+        )
+    return qmodels.Filter(
+        must=[qmodels.FieldCondition(key="user_id", match=qmodels.MatchAny(any=user_id))]
+    )
+
+
+def search(vector: np.ndarray, top_k: int = 10, user_id: int | list[int] | None = None) -> list[dict] | None:
     """Vector search against Qdrant.
 
     Returns None (not an empty list) when Qdrant is unreachable, so callers
@@ -116,11 +131,7 @@ def search(vector: np.ndarray, top_k: int = 10, user_id: int | None = None) -> l
     if not ensure_collection():
         return None
     try:
-        query_filter = None
-        if user_id is not None:
-            query_filter = qmodels.Filter(
-                must=[qmodels.FieldCondition(key="user_id", match=qmodels.MatchValue(value=user_id))]
-            )
+        query_filter = _user_id_filter(user_id)
         hits = get_client().search(
             collection_name=settings.qdrant_collection,
             query_vector=vector.tolist(),
@@ -164,18 +175,14 @@ def delete_contract_chunks(chunk_ids: list[int]) -> None:
         logger.exception("Failed to delete contract chunks %s from Qdrant", chunk_ids)
 
 
-def search_contracts(vector: np.ndarray, top_k: int = 5, user_id: int | None = None) -> list[dict] | None:
+def search_contracts(vector: np.ndarray, top_k: int = 5, user_id: int | list[int] | None = None) -> list[dict] | None:
     """Vector search against the contract-chunk collection. Returns None
     (not an empty list) when Qdrant is unreachable, matching search()'s
     contract so callers can tell "unreachable" from "no results"."""
     if not _ensure(settings.qdrant_contract_collection):
         return None
     try:
-        query_filter = None
-        if user_id is not None:
-            query_filter = qmodels.Filter(
-                must=[qmodels.FieldCondition(key="user_id", match=qmodels.MatchValue(value=user_id))]
-            )
+        query_filter = _user_id_filter(user_id)
         hits = get_client().search(
             collection_name=settings.qdrant_contract_collection,
             query_vector=vector.tolist(),

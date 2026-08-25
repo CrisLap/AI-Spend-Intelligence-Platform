@@ -74,7 +74,7 @@ numbers.
 | 7 | Dashboard | Real-time charts: spend by category/month, top suppliers, KPI cards |
 | 8 | Feedback Loop | User corrections stored → real-time classifier retraining via `POST /classification/retrain` |
 | 9 | REST API | Complete OpenAPI-documented endpoints for every module |
-| 10 | User Management | JWT auth, RBAC (Admin/Buyer/Finance), audit logging |
+| 10 | User Management | JWT auth, RBAC (Admin/Buyer/Finance), audit logging. Spend data (documents, line items, dashboard, search, duplicates, anomalies, contracts) is shared per role — every Buyer sees every Buyer's data, every Finance user sees every Finance user's data, and Admin (a singleton role) sees everything; chat history and Cost Saving Agent run history stay private per user |
 | 11 | Cost Saving Agent | Goal-driven multi-tool agent (spend overview, supplier variance, anomaly scan, contract clause search) built on a generic, reusable ReAct engine; a deterministic Recommendation Engine turns real query results into cited, estimated-saving opportunities; every run is persisted with a full audit trail; guardrails (input validation, output sanitization) apply the same as the Chat |
 | 12 | Contract Intelligence | Contract full text is chunked and semantically indexed (separate Qdrant collection) so clauses - auto-renewal, penalties - are searchable, not just line items |
 | 13 | Forecast Agent | Same agent framework, one tool: projects next month's total spend with a linear-trend fit over real monthly history (`agent_type=forecast`) |
@@ -90,6 +90,7 @@ A few implementation details that aren't obvious from the module table above:
 - **Shared agent framework, not three stacks.** The Cost Saving, Forecast, and Contract Risk agents reuse the same `react_engine.py` + tool-registry pattern - a new agent is a new tool registry, system prompt, and recommendation function, not new infrastructure. All three share one table (`AgentRun.agent_type`), one endpoint (`agent_type` param), and one frontend page (a type selector), instead of three separate REST/UI stacks.
 - **Superlatives need a real ranking, not a similarity score.** `search_spend` only surfaces documents that are textually similar to the query, so "what was our highest expense" can silently miss a bigger item that just didn't match the query text - yet the model would still answer with full confidence. The Chat's system prompt now explicitly tells it to use the deterministic `top_expenses` tool (`agents/tools.py`, `ORDER BY total DESC`) for any highest/biggest/most-expensive question instead of inferring a superlative from `search_spend` hits alone.
 - **Guardrails apply everywhere an LLM sees free-text user input**, not just the Chat: `validate_input`/`sanitize_output` (`guardrails.py`) now guard the Cost Saving/Forecast/Contract Risk agents' `goal` too - a blocked goal skips the LLM call entirely, though the deterministic Recommendation Engine still runs (it depends on `agent_type` and real data, never on the goal text).
+- **Spend data visibility is scoped by role, not by individual user.** `get_visible_user_ids()` (`app/core/deps.py`) resolves, per request, the set of user ids the caller may see: everyone sharing their role, or no filter at all for Admin. Every read/write touching documents, line items, the dashboard, search, duplicates, anomalies, and contract clauses goes through this - both on the PostgreSQL side (`user_id IN (...)`) and on the Qdrant side (a `MatchAny` filter on the same ids), so vector search results never drift out of sync with what the relational queries return. Admin is enforced as a singleton: promoting a second user to Admin (`PATCH /users/{id}/role`) automatically demotes the current one to Buyer in the same transaction, rather than allowing two Admins to exist. The classifier's feedback exemplars (`classifier.py::_FEEDBACK_EXEMPLARS`) are similarly scoped by `(role, category)` instead of being one global pool, so a Buyer's corrections don't bias Finance's classifications. Chat sessions and Cost Saving Agent run history are the deliberate exception - they stay private per individual user even though the spend data they analyze is shared.
 
 ## Quick Start
 
@@ -146,7 +147,10 @@ Login with any of `demo.admin@spendintel.io` / `demo.buyer@spendintel.io` /
 `demo.finance@spendintel.io`, password `DemoPass123!` (printed by the script
 too). Requires `DATABASE_URL` to be reachable; Ollama/Qdrant are optional -
 the script falls back to the same offline methods the app itself uses if
-they aren't running.
+they aren't running. Since spend data is shared per role (see Design Notes
+above), the buyer and finance logins each see only their own seeded set
+today - registering a second buyer/finance account would immediately see
+the existing one's data too, without needing to reseed anything.
 
 ### Production Deploy (zero-cost stack)
 
@@ -216,16 +220,16 @@ in `.env.example`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/auth/register` | Register new user (always created as "buyer") |
+| POST | `/auth/register` | Register new user (self-service choice of "buyer" or "finance"; "admin" is never accepted here, only granted later via `PATCH /users/{id}/role`) |
 | POST | `/auth/login` | Login, get JWT token |
 | GET | `/auth/me` | Current user profile |
 | GET | `/users` | List users (admin only) |
-| PATCH | `/users/{id}/role` | Change a user's role (admin only) |
+| PATCH | `/users/{id}/role` | Change a user's role (admin only); promoting a second user to "admin" auto-demotes the current one to "buyer" (admin is a singleton) |
 | DELETE | `/users/{id}` | Delete a user (admin only) |
 | GET | `/users/{id}/audit-log` | View a user's audit trail (admin only) |
 | POST | `/documents/upload` | Upload a document (PDF/CSV/Excel/Image) |
 | POST | `/documents/{id}/process` | Parse, classify, detect anomalies/duplicates |
-| GET | `/documents` | List user documents |
+| GET | `/documents` | List documents visible to the current user (shared with everyone sharing their role; all documents for admin) |
 | GET | `/documents/{id}` | Get document with line items |
 | DELETE | `/documents/{id}` | Delete a document |
 | POST | `/classification` | Classify descriptions via API |
@@ -284,7 +288,7 @@ cd frontend
 npm test
 ```
 
-Backend: 157 pytest tests across 29 files (`backend/tests/`). Frontend:
+Backend: 162 pytest tests across 29 files (`backend/tests/`). Frontend:
 Vitest + React Testing Library, covering `AgentStepTimeline` and
 `RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
 
@@ -338,7 +342,7 @@ backend/
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
   scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
-  tests/               → 157 pytest tests (29 files)
+  tests/               → 162 pytest tests (29 files)
   Dockerfile
 frontend/
   src/

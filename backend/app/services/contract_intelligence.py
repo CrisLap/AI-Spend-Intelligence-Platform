@@ -71,7 +71,9 @@ def index_contract(document: Document, db: Session) -> list[ContractClause]:
     return saved
 
 
-def search_contracts(query: str, top_k: int = 5, user_id: int | None = None, db: Session | None = None) -> list[dict]:
+def search_contracts(
+    query: str, top_k: int = 5, user_id: int | list[int] | None = None, db: Session | None = None
+) -> list[dict]:
     """Semantic search over contract clauses. Qdrant-first, falling back to
     brute-force in-memory cosine similarity over Postgres rows if Qdrant is
     unreachable - same pattern as search.py::semantic_search."""
@@ -97,7 +99,8 @@ def search_contracts(query: str, top_k: int = 5, user_id: int | None = None, db:
     try:
         q = db.query(ContractClause).join(Document, ContractClause.document_id == Document.id)
         if user_id is not None:
-            q = q.filter(Document.user_id == user_id)
+            ids = [user_id] if isinstance(user_id, int) else user_id
+            q = q.filter(Document.user_id.in_(ids))
         rows = q.with_entities(ContractClause, Document.original_name).all()
         scored = []
         cache_dirty = False

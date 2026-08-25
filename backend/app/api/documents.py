@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import get_current_user, get_ui_language
+from app.core.deps import get_current_user, get_ui_language, get_visible_user_ids
 from app.models.document import (
     ContractClause,
     DocType,
@@ -168,7 +168,11 @@ def process_document(
     user: User = Depends(get_current_user),
     lang: str = Depends(get_ui_language),
 ):
-    doc = db.query(Document).filter(Document.id == doc_id, Document.user_id == user.id).first()
+    scope = get_visible_user_ids(user, db)
+    query = db.query(Document).filter(Document.id == doc_id)
+    if scope is not None:
+        query = query.filter(Document.user_id.in_(scope))
+    doc = query.first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     try:
@@ -208,7 +212,16 @@ def process_document(
 
         descriptions = [i.description for i in items if i.description]
         if descriptions:
-            classifications = classify_batch(descriptions)
+            # Classify into the pool the document actually belongs to - its
+            # owner's role, not necessarily the requester's (e.g. an admin
+            # reprocessing a buyer's document should still feed the buyer
+            # pool's feedback exemplars, not admin's).
+            owner_role = (
+                user.role
+                if doc.user_id == user.id
+                else (db.query(User.role).filter(User.id == doc.user_id).scalar() or "buyer")
+            )
+            classifications = classify_batch(descriptions, role=owner_role)
             for item, cls in zip(items, classifications):
                 item.category_label = cls["category"]
                 item.category_unspsc = cls.get("unspsc", "")
@@ -285,7 +298,10 @@ def list_documents(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    query = db.query(Document).filter(Document.user_id == user.id)
+    scope = get_visible_user_ids(user, db)
+    query = db.query(Document)
+    if scope is not None:
+        query = query.filter(Document.user_id.in_(scope))
     if search:
         query = query.filter(Document.original_name.ilike(f"%{search}%"))
     if status is not None:
@@ -302,7 +318,11 @@ def get_document(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    doc = db.query(Document).filter(Document.id == doc_id, Document.user_id == user.id).first()
+    scope = get_visible_user_ids(user, db)
+    query = db.query(Document).filter(Document.id == doc_id)
+    if scope is not None:
+        query = query.filter(Document.user_id.in_(scope))
+    doc = query.first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     items = db.query(LineItem).filter(LineItem.document_id == doc.id).all()
@@ -318,7 +338,11 @@ def delete_document(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    doc = db.query(Document).filter(Document.id == doc_id, Document.user_id == user.id).first()
+    scope = get_visible_user_ids(user, db)
+    query = db.query(Document).filter(Document.id == doc_id)
+    if scope is not None:
+        query = query.filter(Document.user_id.in_(scope))
+    doc = query.first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     item_ids = _clear_document_children(db, doc.id)

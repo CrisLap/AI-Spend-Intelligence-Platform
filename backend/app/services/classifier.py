@@ -38,13 +38,25 @@ UNSPSC_CODES: dict[str, str] = {
 
 _CATEGORY_EXEMPLARS = {c: f"{c}: " + ", ".join(kws) for c, kws in UNSPSC_TAXONOMY.items()}
 
-_FEEDBACK_EXEMPLARS: dict[str, list[str]] = {c: [] for c in UNSPSC_TAXONOMY}
+# Feedback-based exemplars are scoped by role, not just category: a buyer's
+# correction should improve classification for the buyer pool only, not
+# leak into finance's (or vice versa), mirroring the same role-based
+# visibility boundary applied to documents/line items elsewhere. Keyed by
+# (role, category); role is resolved by the caller as "whichever pool this
+# document/line item belongs to" - see classification.py and
+# feedback_service.py for how that role is determined per call site.
+_ROLES = ("buyer", "finance", "admin")
+_FEEDBACK_EXEMPLARS: dict[tuple[str, str], list[str]] = {
+    (role, c): [] for role in _ROLES for c in UNSPSC_TAXONOMY
+}
 
 
-def seed_feedback_exemplars(feedback_pairs: list[tuple[str, str]]) -> None:
-    for desc, corrected_cat in feedback_pairs:
-        if corrected_cat in _FEEDBACK_EXEMPLARS and desc not in _FEEDBACK_EXEMPLARS[corrected_cat]:
-            _FEEDBACK_EXEMPLARS[corrected_cat].append(desc)
+def seed_feedback_exemplars(feedback_items: list[tuple[str, str, str]]) -> None:
+    """feedback_items is a list of (description, corrected_category, role)."""
+    for desc, corrected_cat, role in feedback_items:
+        key = (role, corrected_cat)
+        if key in _FEEDBACK_EXEMPLARS and desc not in _FEEDBACK_EXEMPLARS[key]:
+            _FEEDBACK_EXEMPLARS[key].append(desc)
 
 
 def _rule_based(desc: str) -> tuple[str, float] | None:
@@ -59,7 +71,7 @@ def _rule_based(desc: str) -> tuple[str, float] | None:
     return best_cat, min(0.99, 0.75 + 0.08 * best_hits)
 
 
-def _embedding_based_with_feedback(desc: str) -> tuple[str, float]:
+def _embedding_based_with_feedback(desc: str, role: str) -> tuple[str, float]:
     vec = embed_text(desc)
     cats = list(_CATEGORY_EXEMPLARS.keys())
 
@@ -67,7 +79,7 @@ def _embedding_based_with_feedback(desc: str) -> tuple[str, float]:
 
     fb_sims = [0.0] * len(cats)
     for i, cat in enumerate(cats):
-        fb_descs = _FEEDBACK_EXEMPLARS.get(cat, [])
+        fb_descs = _FEEDBACK_EXEMPLARS.get((role, cat), [])
         if fb_descs:
             fb_vecs = [embed_text(fb) for fb in fb_descs if fb]
             if fb_vecs:
@@ -82,9 +94,10 @@ def _embedding_based_with_feedback(desc: str) -> tuple[str, float]:
 _FEEDBACK_SIM_THRESHOLD = 0.85
 
 
-def _feedback_based(desc: str) -> tuple[str, float] | None:
-    """Check for a previously user-corrected description close enough to
-    override the classification, including a rule-based keyword match.
+def _feedback_based(desc: str, role: str) -> tuple[str, float] | None:
+    """Check for a previously user-corrected description (within this
+    role's pool) close enough to override the classification, including a
+    rule-based keyword match.
 
     Without this, corrections only ever get consulted inside
     _embedding_based_with_feedback, which is reached only when
@@ -92,11 +105,12 @@ def _feedback_based(desc: str) -> tuple[str, float] | None:
     taxonomy keyword would keep re-triggering the same mistake forever,
     no matter how many times a user corrected it.
     """
-    if not any(_FEEDBACK_EXEMPLARS.values()):
+    role_exemplars = {cat: descs for (r, cat), descs in _FEEDBACK_EXEMPLARS.items() if r == role}
+    if not any(role_exemplars.values()):
         return None
     vec = embed_text(desc)
     best_cat, best_sim = None, 0.0
-    for cat, fb_descs in _FEEDBACK_EXEMPLARS.items():
+    for cat, fb_descs in role_exemplars.items():
         for fb in fb_descs:
             if not fb:
                 continue
@@ -132,8 +146,12 @@ def _llm_based(desc: str) -> tuple[str, float] | None:
     return None
 
 
-def classify_description(desc: str) -> dict:
-    feedback = _feedback_based(desc)
+def classify_description(desc: str, role: str = "buyer") -> dict:
+    """role selects which pool's feedback exemplars to consult - the pool
+    the description's document belongs to (see classification.py/
+    feedback_service.py for how callers resolve it). Defaults to "buyer"
+    for callers that don't have a role in scope (e.g. standalone scripts)."""
+    feedback = _feedback_based(desc, role)
     if feedback:
         cat, conf = feedback
         return {"description": desc, "category": cat, "unspsc": UNSPSC_CODES.get(cat, ""), "confidence": conf, "method": "feedback"}
@@ -141,7 +159,7 @@ def classify_description(desc: str) -> dict:
     if rule:
         cat, conf = rule
         return {"description": desc, "category": cat, "unspsc": UNSPSC_CODES.get(cat, ""), "confidence": conf, "method": "rule_based"}
-    emb = _embedding_based_with_feedback(desc)
+    emb = _embedding_based_with_feedback(desc, role)
     cat, conf = emb
     llm = _llm_based(desc)
     if llm and llm[1] > conf:
@@ -150,6 +168,6 @@ def classify_description(desc: str) -> dict:
     return {"description": desc, "category": cat, "unspsc": UNSPSC_CODES.get(cat, ""), "confidence": conf, "method": "embedding"}
 
 
-def classify_batch(descriptions: list[str]) -> list[dict]:
-    return [classify_description(d) for d in descriptions]
+def classify_batch(descriptions: list[str], role: str = "buyer") -> list[dict]:
+    return [classify_description(d, role) for d in descriptions]
 

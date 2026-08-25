@@ -53,10 +53,10 @@ def _summarize_history(older_messages: list[ChatMessage], db: Session, session: 
     return session.summary or ""
 
 
-def _retrieve_context(query: str, top_k: int = 8, user_id: int | None = None) -> list[dict]:
+def _retrieve_context(query: str, top_k: int = 8, visible_user_ids: int | list[int] | None = None) -> list[dict]:
     q_vec = embed_text(query)
 
-    qdrant_hits = qdrant_search(q_vec, top_k=top_k, user_id=user_id)
+    qdrant_hits = qdrant_search(q_vec, top_k=top_k, user_id=visible_user_ids)
     if qdrant_hits is not None:
         return [
             {
@@ -78,8 +78,9 @@ def _retrieve_context(query: str, top_k: int = 8, user_id: int | None = None) ->
             .join(Document, LineItem.document_id == Document.id)
             .filter(LineItem.description.isnot(None), LineItem.description != "")
         )
-        if user_id is not None:
-            q = q.filter(Document.user_id == user_id)
+        if visible_user_ids is not None:
+            ids = [visible_user_ids] if isinstance(visible_user_ids, int) else visible_user_ids
+            q = q.filter(Document.user_id.in_(ids))
         rows = q.all()
         scored = []
         for item, doc_name in rows:
@@ -102,13 +103,27 @@ def _retrieve_context(query: str, top_k: int = 8, user_id: int | None = None) ->
         db.close()
 
 
+_UNSCOPED = object()  # sentinel: distinguishes "caller omitted visible_user_ids" (default to just [user_id]) from an explicit None (admin - no filter)
+
+
 def _prepare_session_and_context(
-    message: str, session_id: int | None, user_id: int, db: Session
+    message: str,
+    session_id: int | None,
+    user_id: int,
+    db: Session,
+    visible_user_ids: int | list[int] | None = _UNSCOPED,  # type: ignore[assignment]
 ) -> tuple[ChatSession, list[dict], list[dict], str]:
     """Persists the user's message, loads/trims history and retrieves
     context - shared setup between answer_question() (batch) and
     answer_question_stream() (SSE) so the two paths never drift. Returns
-    (session, context, history_dicts, summary_text)."""
+    (session, context, history_dicts, summary_text).
+
+    user_id owns the ChatSession (chat history stays private per user).
+    visible_user_ids is the caller's visible role-scope used only for
+    context retrieval (the underlying spend data is shared per role) -
+    defaults to [user_id] if not given."""
+    if visible_user_ids is _UNSCOPED:
+        visible_user_ids = user_id
     if session_id is None:
         session = ChatSession(user_id=user_id)
         db.add(session)
@@ -140,7 +155,7 @@ def _prepare_session_and_context(
         summary_text = _summarize_history(older, db, session)
         history = kept
 
-    context = _retrieve_context(message, user_id=user_id)
+    context = _retrieve_context(message, visible_user_ids=visible_user_ids)
     history_dicts = [{"role": m.role, "content": m.content} for m in history[-10:]]
     return session, context, history_dicts, summary_text
 
@@ -152,20 +167,30 @@ def _sources_out(context: list[dict]) -> list[dict]:
     ]
 
 
-def answer_question(message: str, session_id: int | None, user_id: int, lang: str = "en") -> dict:
+def answer_question(
+    message: str,
+    session_id: int | None,
+    user_id: int,
+    lang: str = "en",
+    visible_user_ids: int | list[int] | None = _UNSCOPED,  # type: ignore[assignment]
+) -> dict:
     db: Session = SessionLocal()
     try:
-        session, context, history_dicts, summary_text = _prepare_session_and_context(message, session_id, user_id, db)
+        if visible_user_ids is _UNSCOPED:
+            visible_user_ids = user_id
+        session, context, history_dicts, summary_text = _prepare_session_and_context(
+            message, session_id, user_id, db, visible_user_ids
+        )
 
         reply = answer_with_react(
             message=message,
             context=context,
             conversation_history=history_dicts,
-            retrieve_fn=lambda q: _retrieve_context(q, user_id=user_id),
+            retrieve_fn=lambda q: _retrieve_context(q, visible_user_ids=visible_user_ids),
             history_summary=summary_text or None,
             lang=lang,
             db=db,
-            user_id=user_id,
+            user_id=visible_user_ids,
         )
 
         msg = ChatMessage(
@@ -182,7 +207,13 @@ def answer_question(message: str, session_id: int | None, user_id: int, lang: st
         db.close()
 
 
-def answer_question_stream(message: str, session_id: int | None, user_id: int, lang: str = "en") -> Iterator[str]:
+def answer_question_stream(
+    message: str,
+    session_id: int | None,
+    user_id: int,
+    lang: str = "en",
+    visible_user_ids: int | list[int] | None = _UNSCOPED,  # type: ignore[assignment]
+) -> Iterator[str]:
     """SSE equivalent of answer_question(): emits one `event: step` per ReAct
     step as it happens, then a final `event: done` with the persisted reply
     (same shape POST /assistant and POST /chat return) - see
@@ -190,18 +221,22 @@ def answer_question_stream(message: str, session_id: int | None, user_id: int, l
     Saving Agent side, whose SSE chunk format this matches exactly."""
     db: Session = SessionLocal()
     try:
-        session, context, history_dicts, summary_text = _prepare_session_and_context(message, session_id, user_id, db)
+        if visible_user_ids is _UNSCOPED:
+            visible_user_ids = user_id
+        session, context, history_dicts, summary_text = _prepare_session_and_context(
+            message, session_id, user_id, db, visible_user_ids
+        )
 
         final_reply = ""
         for step_obj, final_answer in answer_with_react_stream(
             message=message,
             context=context,
             conversation_history=history_dicts,
-            retrieve_fn=lambda q: _retrieve_context(q, user_id=user_id),
+            retrieve_fn=lambda q: _retrieve_context(q, visible_user_ids=visible_user_ids),
             history_summary=summary_text or None,
             lang=lang,
             db=db,
-            user_id=user_id,
+            user_id=visible_user_ids,
         ):
             yield f"event: step\ndata: {json.dumps(step_to_dict(step_obj), ensure_ascii=False)}\n\n"
             if final_answer is not None:

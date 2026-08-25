@@ -29,6 +29,9 @@ def list_users(
     return [UserOut.model_validate(u) for u in db.query(User).order_by(User.created_at).all()]
 
 
+_ADMIN_DEMOTION_ROLE = "buyer"
+
+
 @router.patch("/{user_id}/role", response_model=UserOut)
 def update_user_role(
     user_id: int,
@@ -38,13 +41,39 @@ def update_user_role(
 ):
     if payload.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Role must be one of {sorted(VALID_ROLES)}")
+    if user_id == admin.id and payload.role != "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot change your own role away from admin - promote another user to admin first",
+        )
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     previous_role = user.role
+
+    # Admin is a singleton: promoting a different user to admin transfers
+    # the role rather than creating a second admin - the current admin(s)
+    # are demoted in the same transaction. (user_id == admin.id is a no-op
+    # here: previous_role is already "admin", so the loop below finds no
+    # *other* admin to demote.)
+    demoted: list[User] = []
+    if payload.role == "admin":
+        demoted = db.query(User).filter(User.role == "admin", User.id != user_id).all()
+        for other in demoted:
+            other.role = _ADMIN_DEMOTION_ROLE
+
     user.role = payload.role
     db.commit()
     db.refresh(user)
+    for other in demoted:
+        log_action(
+            db,
+            user_id=admin.id,
+            action="update_role",
+            entity_type="user",
+            entity_id=other.id,
+            details={"previous_role": "admin", "new_role": _ADMIN_DEMOTION_ROLE, "reason": "admin_transfer"},
+        )
     log_action(
         db,
         user_id=admin.id,

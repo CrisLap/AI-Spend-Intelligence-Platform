@@ -22,7 +22,11 @@ def _cached_embedding(item: LineItem) -> np.ndarray | None:
         return None
 
 
-def semantic_search(query: str, top_k: int = 10, user_id: int | None = None, db: Session | None = None) -> list[dict]:
+def semantic_search(
+    query: str, top_k: int = 10, user_id: int | list[int] | None = None, db: Session | None = None
+) -> list[dict]:
+    """user_id also accepts a list of ids (the caller's visible role-scope,
+    see core/deps.py::get_visible_user_ids) - None means no filter."""
     q_vec = embed_text(query)
 
     qdrant_hits = qdrant_search(q_vec, top_k=top_k, user_id=user_id)
@@ -52,7 +56,9 @@ def semantic_search(query: str, top_k: int = 10, user_id: int | None = None, db:
             LineItem.description != "",
         )
         if user_id is not None:
-            q = q.join(Document, LineItem.document_id == Document.id).filter(Document.user_id == user_id)
+            q = q.join(Document, LineItem.document_id == Document.id)
+            ids = [user_id] if isinstance(user_id, int) else user_id
+            q = q.filter(Document.user_id.in_(ids))
         items = q.all()
         scored = []
         cache_dirty = False

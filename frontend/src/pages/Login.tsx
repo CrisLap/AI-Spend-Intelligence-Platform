@@ -11,9 +11,11 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const nameId = useId();
   const emailId = useId();
   const passwordId = useId();
+  const roleId = useId();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [role, setRole] = useState("buyer");
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,7 +24,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
     setError("");
     try {
       if (isRegister) {
-        const res = await auth.register(email, password, name);
+        const res = await auth.register(email, password, name, role);
         setToken(res.access_token);
         onLogin(res.user);
       } else {
@@ -46,6 +48,12 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
               <label htmlFor={nameId} className="sr-only">{t("fullNamePlaceholder")}</label>
               <input id={nameId} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fullNamePlaceholder")} required
                 className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
+              <label htmlFor={roleId} className="text-xs text-muted">{t("roleLabel")}</label>
+              <select id={roleId} value={role} onChange={(e) => setRole(e.target.value)}
+                className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">
+                <option value="buyer">{t("roleBuyer")}</option>
+                <option value="finance">{t("roleFinance")}</option>
+              </select>
             </>
           )}
           <label htmlFor={emailId} className="sr-only">{t("emailPlaceholder")}</label>

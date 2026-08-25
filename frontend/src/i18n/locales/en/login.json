@@ -8,5 +8,8 @@
   "signIn": "Sign In",
   "switchToSignIn": "Already have an account? Sign In",
   "switchToRegister": "New user? Register",
-  "passwordHint": "At least 10 characters"
+  "passwordHint": "At least 10 characters",
+  "roleLabel": "Role",
+  "roleBuyer": "Buyer",
+  "roleFinance": "Finance"
 }

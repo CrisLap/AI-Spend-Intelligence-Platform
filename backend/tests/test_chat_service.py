@@ -19,7 +19,7 @@ def test_retrieve_context_fallback_does_not_crash_without_qdrant(db, monkeypatch
     db.add(item)
     db.commit()
 
-    results = chat_service._retrieve_context("toner", user_id=1)
+    results = chat_service._retrieve_context("toner", visible_user_ids=1)
 
     assert results
     assert results[0]["source"] == "toner_invoice.csv"

@@ -18,6 +18,16 @@ def _upload_and_process(client: TestClient, headers: dict, csv: bytes) -> int:
     return doc_id
 
 
+def _my_item_ids(client: TestClient, headers: dict, doc_id: int) -> set[int]:
+    """Line item ids belonging to this test's own uploaded document - spend
+    data (anomalies/duplicates) is now shared per role, so a test whose
+    default-role user shares a pool with every other default-role test in
+    this session can't assume it's the only/first entry in a list response;
+    it must pick out its own item(s) explicitly."""
+    items = client.get(f"/documents/{doc_id}", headers=headers).json()["line_items"]
+    return {i["id"] for i in items}
+
+
 def _anomaly_csv() -> bytes:
     rows = [b"description,quantity,unit_price,total,supplier"]
     for _ in range(10):
@@ -36,13 +46,13 @@ def _duplicate_csv() -> bytes:
 
 def test_anomaly_lifecycle_resolve_filter_search(client: TestClient):
     headers = _register_and_login(client, "anom-owner@spend.com")
-    _upload_and_process(client, headers, _anomaly_csv())
+    doc_id = _upload_and_process(client, headers, _anomaly_csv())
+    my_item_ids = _my_item_ids(client, headers, doc_id)
 
     r = client.get("/anomalies", headers=headers)
     assert r.status_code == 200
     anomalies = r.json()
-    assert len(anomalies) >= 1
-    flagged = anomalies[0]
+    flagged = next(a for a in anomalies if a["id"] in my_item_ids)
     assert flagged["resolved"] is False
 
     # search matches, unrelated search term does not
@@ -70,25 +80,29 @@ def test_anomaly_lifecycle_resolve_filter_search(client: TestClient):
     assert flagged["id"] in [a["id"] for a in r.json()]
 
 
-def test_cannot_resolve_another_users_anomaly(client: TestClient):
+def test_same_role_user_can_resolve_shared_anomaly(client: TestClient):
+    """Spend data (including anomalies) is shared per role: a same-role
+    teammate can resolve an anomaly they didn't personally upload."""
     owner_headers = _register_and_login(client, "anom-owner2@spend.com")
-    _upload_and_process(client, owner_headers, _anomaly_csv())
-    flagged_id = client.get("/anomalies", headers=owner_headers).json()[0]["id"]
+    doc_id = _upload_and_process(client, owner_headers, _anomaly_csv())
+    my_item_ids = _my_item_ids(client, owner_headers, doc_id)
+    anomalies = client.get("/anomalies", headers=owner_headers).json()
+    flagged_id = next(a for a in anomalies if a["id"] in my_item_ids)["id"]
 
-    intruder_headers = _register_and_login(client, "anom-intruder@spend.com")
-    r = client.patch(f"/anomalies/{flagged_id}/resolve", json={"resolved": True}, headers=intruder_headers)
-    assert r.status_code == 404
+    teammate_headers = _register_and_login(client, "anom-teammate@spend.com")
+    r = client.patch(f"/anomalies/{flagged_id}/resolve", json={"resolved": True}, headers=teammate_headers)
+    assert r.status_code == 200
 
 
 def test_duplicate_lifecycle_resolve_filter_search(client: TestClient):
     headers = _register_and_login(client, "dup-owner@spend.com")
-    _upload_and_process(client, headers, _duplicate_csv())
+    doc_id = _upload_and_process(client, headers, _duplicate_csv())
+    my_item_ids = _my_item_ids(client, headers, doc_id)
 
     r = client.get("/duplicates", headers=headers)
     assert r.status_code == 200
     groups = r.json()
-    assert len(groups) == 1
-    group = groups[0]
+    group = next(g for g in groups if any(item["id"] in my_item_ids for item in g["items"]))
     assert group["resolved"] is False
 
     r = client.get("/duplicates", params={"search": "Toner"}, headers=headers)
@@ -108,14 +122,17 @@ def test_duplicate_lifecycle_resolve_filter_search(client: TestClient):
     assert resolved_ids[group["id"]] is True
 
 
-def test_cannot_resolve_another_users_duplicate_group(client: TestClient):
+def test_same_role_user_can_resolve_shared_duplicate_group(client: TestClient):
+    """Same as the anomaly case above: duplicate groups are shared per role."""
     owner_headers = _register_and_login(client, "dup-owner2@spend.com")
-    _upload_and_process(client, owner_headers, _duplicate_csv())
-    group_id = client.get("/duplicates", headers=owner_headers).json()[0]["id"]
+    doc_id = _upload_and_process(client, owner_headers, _duplicate_csv())
+    my_item_ids = _my_item_ids(client, owner_headers, doc_id)
+    groups = client.get("/duplicates", headers=owner_headers).json()
+    group_id = next(g for g in groups if any(item["id"] in my_item_ids for item in g["items"]))["id"]
 
-    intruder_headers = _register_and_login(client, "dup-intruder@spend.com")
-    r = client.patch(f"/duplicates/{group_id}/resolve", json={"resolved": True}, headers=intruder_headers)
-    assert r.status_code == 404
+    teammate_headers = _register_and_login(client, "dup-teammate@spend.com")
+    r = client.patch(f"/duplicates/{group_id}/resolve", json={"resolved": True}, headers=teammate_headers)
+    assert r.status_code == 200
 
 
 def test_documents_search_status_and_sort(client: TestClient):

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_role
+from app.core.deps import get_current_user, get_visible_user_ids, require_role
 from app.core.rate_limit import limiter
 from app.models.document import Document, LineItem
 from app.models.user import User
@@ -34,13 +34,13 @@ class ClassifySingleRequest(BaseModel):
 @router.post("", response_model=ClassifyResponse)
 @limiter.limit("20/minute")
 def classify(request: Request, payload: ClassifyRequest, user: User = Depends(get_current_user)):
-    return ClassifyResponse(results=classify_batch(payload.descriptions))
+    return ClassifyResponse(results=classify_batch(payload.descriptions, role=user.role))
 
 
 @router.post("/single", response_model=dict)
 @limiter.limit("20/minute")
 def classify_single(request: Request, payload: ClassifySingleRequest, user: User = Depends(get_current_user)):
-    return classify_description(payload.desc)
+    return classify_description(payload.desc, role=user.role)
 
 
 @router.patch("/line-items/{item_id}", response_model=LineItemOut)
@@ -50,19 +50,29 @@ def update_line_item(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    item = (
-        db.query(LineItem)
+    scope = get_visible_user_ids(user, db)
+    query = (
+        db.query(LineItem, Document.user_id)
         .join(Document, LineItem.document_id == Document.id)
-        .filter(LineItem.id == item_id, Document.user_id == user.id)
-        .first()
+        .filter(LineItem.id == item_id)
     )
-    if not item:
+    if scope is not None:
+        query = query.filter(Document.user_id.in_(scope))
+    row = query.first()
+    if not row:
         raise HTTPException(status_code=404, detail="Line item not found")
+    item, owner_id = row
     old_cat = item.category_label
     if payload.category_label is not None:
         item.category_label = payload.category_label
         if old_cat and old_cat != payload.category_label:
-            seed_feedback_exemplars([(item.description, payload.category_label)])
+            # Feed the pool the document actually belongs to (its owner's
+            # role), not necessarily the correcting user's own role - see
+            # classifier.py's docstring on _FEEDBACK_EXEMPLARS.
+            owner_role = (
+                user.role if owner_id == user.id else (db.query(User.role).filter(User.id == owner_id).scalar() or "buyer")
+            )
+            seed_feedback_exemplars([(item.description, payload.category_label, owner_role)])
     if payload.category_unspsc is not None:
         item.category_unspsc = payload.category_unspsc
     if payload.supplier is not None:
@@ -87,18 +97,36 @@ def retrain_from_feedback(
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "finance")),
 ):
-    feedbacks = get_feedback_for_training(db)
+    # Scoped to the caller's visible pool (None/no filter for admin) so
+    # retraining stays within the same role-based sharing boundary as
+    # everything else - a finance retrain shouldn't be diluted by buyer
+    # corrections and vice versa.
+    scope = get_visible_user_ids(user, db)
+    feedbacks = get_feedback_for_training(db, user_ids=scope)
     if not feedbacks:
         return {"trained": 0, "message": "No new feedback to train on"}
 
     line_item_ids = [fb.line_item_id for fb in feedbacks if fb.line_item_id]
     items_by_id = {}
+    owner_role_by_doc: dict[int, str] = {}
     if line_item_ids:
         items = db.query(LineItem).filter(LineItem.id.in_(line_item_ids)).all()
         items_by_id = {i.id: i for i in items}
+        doc_ids = {i.document_id for i in items}
+        if doc_ids:
+            owner_role_by_doc = dict(
+                db.query(Document.id, User.role)
+                .join(User, Document.user_id == User.id)
+                .filter(Document.id.in_(doc_ids))
+                .all()
+            )
 
     pairs = [
-        (items_by_id[fb.line_item_id].description, fb.corrected_category)
+        (
+            items_by_id[fb.line_item_id].description,
+            fb.corrected_category,
+            owner_role_by_doc.get(items_by_id[fb.line_item_id].document_id, "buyer"),
+        )
         for fb in feedbacks
         if fb.line_item_id in items_by_id and items_by_id[fb.line_item_id].description
     ]

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_visible_user_ids
 from app.models.user import User
 from app.services.search import semantic_search
 
@@ -18,5 +18,5 @@ def search(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    results = semantic_search(q, top_k=top_k, user_id=user.id, db=db)
+    results = semantic_search(q, top_k=top_k, user_id=get_visible_user_ids(user, db), db=db)
     return {"query": q, "total": len(results), "results": results}

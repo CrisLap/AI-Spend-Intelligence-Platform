@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, get_ui_language
+from app.core.deps import get_current_user, get_ui_language, get_visible_user_ids
 from app.core.rate_limit import limiter
 from app.models.agent_run import AgentRun
 from app.models.user import User
@@ -46,7 +46,10 @@ def analyze_cost_saving(
     lang: str = Depends(get_ui_language),
 ):
     agent_type = _validate_agent_type(payload.agent_type)
-    run = analyze(payload.goal, user.id, db, agent_type=agent_type, lang=lang)
+    run = analyze(
+        payload.goal, user.id, db, agent_type=agent_type, lang=lang,
+        visible_user_ids=get_visible_user_ids(user, db),
+    )
     log_action(
         db, user_id=user.id, action="cost_saving_analyze", entity_type="agent_run", entity_id=run.id,
         details={
@@ -84,10 +87,11 @@ def analyze_cost_saving_stream(
     tradeoff, not an oversight.
     """
     agent_type = _validate_agent_type(agent_type)
+    scope = get_visible_user_ids(user, db)
 
     def event_source():
         last_chunk = ""
-        for chunk in analyze_stream(goal, user.id, db, agent_type=agent_type, lang=lang):
+        for chunk in analyze_stream(goal, user.id, db, agent_type=agent_type, lang=lang, visible_user_ids=scope):
             last_chunk = chunk
             yield chunk
         if last_chunk.startswith("event: done"):

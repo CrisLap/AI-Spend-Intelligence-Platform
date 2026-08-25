@@ -1,19 +1,22 @@
 """
 Seed the database with realistic demo data for AI Spend Intelligence Platform.
 
-Creates 3 demo users. Since every read query scopes strictly by user_id (see
-.claude/rules/security-and-multitenancy.md Rule 1), each demo user needs
-their own documents to have anything to see - a shared pool owned by one
-user would leave the other two logins with an empty dashboard. The buyer
-gets the full 9-document/2-contract set below, deliberately constructed -
-and verified against the actual detection logic, not just "plausible" - to
-trigger every detection module on first login; admin and finance each get a
-smaller, role-appropriate set (ADMIN_DOCUMENTS / FINANCE_DOCUMENTS) just so
-their dashboard/documents/search views aren't empty. Each document's source
-CSV is also written to disk under UPLOAD_DIR, matching the row-level data
-seeded in the database, so features that read from disk (e.g. the
-"reprocess document" endpoint) work against real files instead of a
-dangling path reference.
+Creates 3 demo users. Spend data is now visible per role (every user sees
+everything uploaded by anyone sharing their role; admin sees everything -
+see core/deps.py::get_visible_user_ids), so strictly speaking one seeded
+document set per role would be enough for every login of that role to see
+non-empty data. This script still seeds a document per *demo user*
+(DOCUMENTS/ADMIN_DOCUMENTS/FINANCE_DOCUMENTS below) rather than collapsing
+that down, mainly so each demo login's data is easy to reason about and
+attribute individually while iterating on the demo - buyer's document set
+is deliberately the full 9-document/2-contract one, verified against the
+actual detection logic (not just "plausible") to trigger every detection
+module; admin and finance each get a smaller, role-appropriate set just so
+their views aren't empty even before the role-sharing change. Each
+document's source CSV is also written to disk under UPLOAD_DIR, matching
+the row-level data seeded in the database, so features that read from disk
+(e.g. the "reprocess document" endpoint) work against real files instead of
+a dangling path reference.
 
 Buyer-set detection triggers:
 
@@ -424,7 +427,7 @@ def _seed_documents(db, owner: User, documents: list) -> None:
         for item in items:
             db.refresh(item)
 
-        classifications = classify_batch([i.description for i in items])
+        classifications = classify_batch([i.description for i in items], role=owner.role)
         for item, cls in zip(items, classifications):
             item.category_label = cls["category"]
             item.category_unspsc = cls.get("unspsc", "")

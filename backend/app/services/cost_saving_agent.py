@@ -141,10 +141,14 @@ _STRINGS = {
 }
 
 
-def _variance_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
+def _variance_recommendations(user_id: int | list[int] | None, db: Session, lang: str = "en") -> list[dict]:
     """Flags suppliers whose recent-period spend rose by more than
     _VARIANCE_THRESHOLD_PCT vs. the previous period (see
-    analytics.get_supplier_variance) as renegotiation candidates."""
+    analytics.get_supplier_variance) as renegotiation candidates.
+
+    user_id here is the caller's visible role-scope (a list of ids, or None
+    for admin - see core/deps.py::get_visible_user_ids), not necessarily a
+    single user, since the underlying spend data is now shared per role."""
     recs = []
     for v in get_supplier_variance(user_id=user_id, db=db):
         if v["variance_pct"] < _VARIANCE_THRESHOLD_PCT:
@@ -172,7 +176,7 @@ def _variance_recommendations(user_id: int, db: Session, lang: str = "en") -> li
     return recs
 
 
-def _contract_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
+def _contract_recommendations(user_id: int | list[int] | None, db: Session, lang: str = "en") -> list[dict]:
     """Flags contracts whose indexed text semantically matches renewal/penalty
     language, using the real contract-clause RAG (contract_intelligence.py) -
     not a keyword scan of the raw file."""
@@ -197,7 +201,7 @@ def _contract_recommendations(user_id: int, db: Session, lang: str = "en") -> li
     return recs
 
 
-def _forecast_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
+def _forecast_recommendations(user_id: int | list[int] | None, db: Session, lang: str = "en") -> list[dict]:
     """Turns the linear-trend forecast (analytics.forecast_next_month_spend)
     into the same recommendation shape the other agents produce, so the
     frontend needs no special case - but with no estimated_saving, since a
@@ -230,7 +234,7 @@ def _forecast_recommendations(user_id: int, db: Session, lang: str = "en") -> li
     }]
 
 
-def _contract_risk_recommendations(user_id: int, db: Session, lang: str = "en") -> list[dict]:
+def _contract_risk_recommendations(user_id: int | list[int] | None, db: Session, lang: str = "en") -> list[dict]:
     """Same real contract-clause RAG as _contract_recommendations(), just
     searched for risk language (penalties, exclusivity, no price cap)
     instead of renewal language - the Contract Risk Agent's counterpart."""
@@ -256,20 +260,26 @@ def _contract_risk_recommendations(user_id: int, db: Session, lang: str = "en") 
     return recs
 
 
-def _compute_recommendations(agent_type: str, user_id: int, db: Session, lang: str = "en") -> list[dict]:
+def _compute_recommendations(
+    agent_type: str, visible_user_ids: int | list[int] | None, db: Session, lang: str = "en"
+) -> list[dict]:
     if agent_type == "forecast":
-        return _forecast_recommendations(user_id, db, lang)
+        return _forecast_recommendations(visible_user_ids, db, lang)
     if agent_type == "contract_risk":
-        return _contract_risk_recommendations(user_id, db, lang)
-    recommendations = _variance_recommendations(user_id, db, lang) + _contract_recommendations(user_id, db, lang)
+        return _contract_risk_recommendations(visible_user_ids, db, lang)
+    recommendations = _variance_recommendations(visible_user_ids, db, lang) + _contract_recommendations(
+        visible_user_ids, db, lang
+    )
     recommendations.sort(key=lambda r: r.get("estimated_saving") or 0, reverse=True)
     return recommendations
 
 
-def _react_kwargs(goal: str, user_id: int, db: Session, agent_type: str, lang: str = "en") -> dict:
+def _react_kwargs(
+    goal: str, visible_user_ids: int | list[int] | None, db: Session, agent_type: str, lang: str = "en"
+) -> dict:
     """Shared setup between analyze() (batch) and analyze_stream() (SSE) -
     both run the identical ReAct configuration, just consumed differently."""
-    tools = _TOOL_BUILDERS[agent_type](user_id, db)
+    tools = _TOOL_BUILDERS[agent_type](visible_user_ids, db)
     return {
         "chat_fn": chat,
         "system_prompt": build_system_prompt(_ROLE_DESCRIPTIONS[agent_type], tools, lang=lang),
@@ -284,12 +294,24 @@ def _react_kwargs(goal: str, user_id: int, db: Session, agent_type: str, lang: s
     }
 
 
-def _persist_run(goal: str, user_id: int, agent_type: str, trace: ReactTrace, db: Session, lang: str = "en") -> AgentRun:
+def _persist_run(
+    goal: str,
+    user_id: int,
+    visible_user_ids: int | list[int] | None,
+    agent_type: str,
+    trace: ReactTrace,
+    db: Session,
+    lang: str = "en",
+) -> AgentRun:
     """Computes the deterministic recommendations and saves the run - shared
     tail end of both analyze() and analyze_stream(), see analyze()'s
     docstring for why the recommendations are computed independently of the
-    ReAct trace rather than parsed out of it."""
-    recommendations = _compute_recommendations(agent_type, user_id, db, lang)
+    ReAct trace rather than parsed out of it.
+
+    user_id (a single id) owns the persisted AgentRun - run history stays
+    private per user even though the underlying spend data it's computed
+    over (visible_user_ids) is now shared per role."""
+    recommendations = _compute_recommendations(agent_type, visible_user_ids, db, lang)
 
     run = AgentRun(
         user_id=user_id,
@@ -305,9 +327,25 @@ def _persist_run(goal: str, user_id: int, agent_type: str, trace: ReactTrace, db
     return run
 
 
-def analyze(goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGENT_TYPE, lang: str = "en") -> AgentRun:
+_UNSCOPED = object()  # sentinel: distinguishes "caller omitted visible_user_ids" (default to just [user_id]) from an explicit None (admin - no filter)
+
+
+def analyze(
+    goal: str,
+    user_id: int,
+    db: Session,
+    agent_type: str = DEFAULT_AGENT_TYPE,
+    lang: str = "en",
+    visible_user_ids: int | list[int] | None = _UNSCOPED,  # type: ignore[assignment]
+) -> AgentRun:
     """Runs one of the three agents (agent_type: "cost_saving", "forecast" or
     "contract_risk") for a goal and persists the result.
+
+    user_id owns the persisted AgentRun (run history stays private per
+    user). visible_user_ids is the caller's visible role-scope used to
+    query the underlying spend data (see core/deps.py::get_visible_user_ids)
+    - defaults to just [user_id] if not given, for callers/tests that don't
+    need role-based sharing.
 
     Two things happen, deliberately decoupled:
       1. A real multi-step ReAct loop (run_react) where the LLM decides
@@ -329,17 +367,24 @@ def analyze(goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGEN
     data via agent_type alone (see _compute_recommendations), never from the
     goal text, so they stay valid whether or not the ReAct trace ran.
     """
+    if visible_user_ids is _UNSCOPED:
+        visible_user_ids = user_id
     guard = validate_input(goal, lang=lang)
     if guard:
         trace = ReactTrace(final_answer=guard)
     else:
-        trace = run_react(**_react_kwargs(goal, user_id, db, agent_type, lang))
+        trace = run_react(**_react_kwargs(goal, visible_user_ids, db, agent_type, lang))
         trace.final_answer = sanitize_output(trace.final_answer)
-    return _persist_run(goal, user_id, agent_type, trace, db, lang)
+    return _persist_run(goal, user_id, visible_user_ids, agent_type, trace, db, lang)
 
 
 def analyze_stream(
-    goal: str, user_id: int, db: Session, agent_type: str = DEFAULT_AGENT_TYPE, lang: str = "en"
+    goal: str,
+    user_id: int,
+    db: Session,
+    agent_type: str = DEFAULT_AGENT_TYPE,
+    lang: str = "en",
+    visible_user_ids: int | list[int] | None = _UNSCOPED,  # type: ignore[assignment]
 ) -> Iterator[str]:
     """Same pipeline as analyze(), but yields each ReAct step as a
     server-sent event as soon as it's produced, instead of waiting for the
@@ -352,6 +397,8 @@ def analyze_stream(
     blank line the SSE format requires), ready to hand to
     fastapi.responses.StreamingResponse.
     """
+    if visible_user_ids is _UNSCOPED:
+        visible_user_ids = user_id
     guard = validate_input(goal, lang=lang)
     if guard:
         trace = ReactTrace(final_answer=guard)
@@ -359,13 +406,13 @@ def analyze_stream(
         yield f"event: step\ndata: {json.dumps(step_to_dict(step_obj), ensure_ascii=False)}\n\n"
     else:
         trace = ReactTrace()
-        for step, final_answer in iter_react_steps(**_react_kwargs(goal, user_id, db, agent_type, lang)):
+        for step, final_answer in iter_react_steps(**_react_kwargs(goal, visible_user_ids, db, agent_type, lang)):
             trace.steps.append(step)
             yield f"event: step\ndata: {json.dumps(step_to_dict(step), ensure_ascii=False)}\n\n"
             if final_answer is not None:
                 trace.final_answer = sanitize_output(final_answer)
 
-    run = _persist_run(goal, user_id, agent_type, trace, db, lang)
+    run = _persist_run(goal, user_id, visible_user_ids, agent_type, trace, db, lang)
     done_payload = {
         "id": run.id,
         "goal": run.goal,
