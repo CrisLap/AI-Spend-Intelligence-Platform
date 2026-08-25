@@ -83,7 +83,7 @@ export default function DuplicatesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">{t("title")}</h1>
+      <h1 className="text-page-title font-bold">{t("title")}</h1>
 
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -91,7 +91,7 @@ export default function DuplicatesPage() {
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("common:search")}
           aria-label={t("common:search")}
-          className="flex-1 min-w-[180px] rounded-full border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+          className="flex-1 min-w-[180px] rounded-full border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
         />
         <label className="flex items-center gap-1.5 text-xs text-muted">
           <input

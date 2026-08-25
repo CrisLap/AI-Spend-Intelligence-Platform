@@ -88,10 +88,10 @@ export default function DocumentView() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <button onClick={() => navigate("/documents")} className="text-xs text-muted hover:text-parchment">{t("back")}</button>
-        <h1 className="text-xl font-bold">{doc.original_name}</h1>
+        <h1 className="text-page-title font-bold">{doc.original_name}</h1>
         <span className={`text-xs px-2 py-0.5 rounded-full ${doc.status === "classified" ? "bg-ok/10 text-ok" : "bg-amber/10 text-amber"}`}>{doc.status}</span>
       </div>
-      <Card className="overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <TableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
@@ -111,7 +111,7 @@ export default function DocumentView() {
                       <select
                         value={pendingCategory[item.id] ?? item.category_label ?? ""}
                         onChange={(e) => setPendingCategory((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none"
+                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                       >
                         {!item.category_label && <option value="">{t("notAvailable")}</option>}
                         {CATEGORIES.map((c) => <option key={c} value={c}>{t(c, { ns: "categories", defaultValue: c })}</option>)}
@@ -156,7 +156,7 @@ export default function DocumentView() {
                           onChange={(e) => setFeedbackComment(e.target.value)}
                           placeholder={t("feedbackPlaceholder")}
                           aria-label={t("feedbackPlaceholder")}
-                          className="flex-1 rounded-full border border-border bg-panel px-2 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+                          className="flex-1 rounded-full border border-border bg-panel px-2 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                         />
                         <button onClick={() => submitFeedback(item)} className="text-xs rounded-full bg-amber px-3 py-1 font-semibold text-surface">
                           {t("submitFeedback")}

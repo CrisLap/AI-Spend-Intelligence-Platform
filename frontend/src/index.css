@@ -13,6 +13,11 @@
   --color-ok: #22c55e;
 
   --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
+
+  /* Reserved exclusively for the page-level <h1> and the primary KPI
+     number (Dashboard.tsx) - not general-purpose sizes. */
+  --text-page-title: 1.375rem;
+  --text-metric: 2rem;
 }
 
 /* Light theme overrides. `data-theme` is set on <html> by ThemeContext

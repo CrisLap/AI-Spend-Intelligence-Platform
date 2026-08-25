@@ -71,7 +71,7 @@ export default function AdminUsers() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">{t("title")}</h1>
+        <h1 className="text-page-title font-bold">{t("title")}</h1>
         <div className="flex items-center gap-2">
           {retrainMessage && <span className="text-xs text-muted">{retrainMessage}</span>}
           <button onClick={handleRetrain} disabled={retraining} className="rounded-full bg-teal px-4 py-1.5 text-xs font-semibold text-surface disabled:opacity-50">
@@ -83,7 +83,7 @@ export default function AdminUsers() {
       {loading ? (
         <SkeletonTable cols={5} />
       ) : (
-        <Card className="overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <TableScroll>
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
@@ -99,7 +99,7 @@ export default function AdminUsers() {
                       <select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u, e.target.value)}
-                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none"
+                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                       >
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>

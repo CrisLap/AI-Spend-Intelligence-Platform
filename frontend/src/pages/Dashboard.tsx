@@ -52,15 +52,15 @@ export default function Dashboard() {
   if (data.total_documents === 0) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-xl font-bold">{t("title")}</h1>
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-panel backdrop-blur-md p-12 text-center">
+        <h1 className="text-page-title font-bold">{t("title")}</h1>
+        <Card padding="xl" className="border-dashed flex flex-col items-center justify-center gap-3 text-center">
           <Upload size={28} className="text-muted" aria-hidden="true" />
           <p className="text-sm font-semibold text-parchment">{t("emptyState.title")}</p>
           <p className="text-xs text-muted max-w-sm">{t("emptyState.description")}</p>
           <Link to="/documents" className="mt-2 rounded-full bg-teal px-4 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
             {t("emptyState.cta")}
           </Link>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-bold">{t("title")}</h1>
+      <h1 className="text-page-title font-bold">{t("title")}</h1>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: t("kpi.totalSpend"), value: `€${data.total_spend.toLocaleString()}`, color: "text-teal", to: "/documents" },
@@ -89,13 +89,13 @@ export default function Dashboard() {
         ].map((k) => (
           <Link key={k.label} to={k.to} className="rounded-2xl border border-border bg-panel backdrop-blur-md p-4 transition-colors hover:border-teal">
             <p className="text-xs text-muted uppercase tracking-wide">{k.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${k.color}`}>{typeof k.value === "number" ? k.value.toLocaleString() : k.value}</p>
+            <p className={`text-metric font-bold mt-1 ${k.color}`}>{typeof k.value === "number" ? k.value.toLocaleString() : k.value}</p>
           </Link>
         ))}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-4">
+        <Card>
           <h2 className="text-sm font-semibold mb-3">{t("spendByCategory")}</h2>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
@@ -107,7 +107,7 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </Card>
 
-        <Card className="p-4">
+        <Card>
           <h2 className="text-sm font-semibold mb-3">{t("monthlySpend")}</h2>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.spend_by_month}>
@@ -121,7 +121,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-4">
+        <Card>
           <h2 className="text-sm font-semibold mb-3">{t("topSuppliers")}</h2>
           <div className="flex flex-col gap-2">
             {data.top_suppliers.map((s) => (
@@ -132,7 +132,7 @@ export default function Dashboard() {
             ))}
           </div>
         </Card>
-        <Card className="p-4">
+        <Card>
           <h2 className="text-sm font-semibold mb-3">{t("topCategories")}</h2>
           <div className="flex flex-col gap-2">
             {data.top_categories.map((c) => (

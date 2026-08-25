@@ -39,10 +39,10 @@ export default function SemanticSearch() {
 
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
-      <h1 className="text-xl font-bold">{t("title")}</h1>
+      <h1 className="text-page-title font-bold">{t("title")}</h1>
       <p className="text-xs text-muted">{t("description")}</p>
       <form onSubmit={handle} className="flex gap-2">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("placeholder")} aria-label={t("title")} className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("placeholder")} aria-label={t("title")} className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
         <button type="submit" className="rounded-full bg-teal px-4 py-2 text-xs font-semibold text-surface">{t("search")}</button>
       </form>
       {error && <p className="text-xs text-danger">{error}</p>}

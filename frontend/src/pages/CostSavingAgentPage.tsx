@@ -113,7 +113,7 @@ export default function CostSavingAgentPage() {
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div>
-        <h1 className="text-xl font-bold">{t("title")}</h1>
+        <h1 className="text-page-title font-bold">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted">{t("subtitle")}</p>
       </div>
 
@@ -156,7 +156,7 @@ export default function CostSavingAgentPage() {
             disabled={running}
             placeholder={t("goalPlaceholder")}
             aria-label={t("goalPlaceholder")}
-            className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+            className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
           />
           <button
             type="submit"
@@ -172,7 +172,7 @@ export default function CostSavingAgentPage() {
 
       {(running || run) && (
         <div className="flex flex-col gap-4">
-          <Card className="p-4">
+          <Card>
             <h2 className="mb-3 text-sm font-semibold">{t("reasoning")}</h2>
             {/* Live runs already arrive one step at a time over SSE, so no
                 extra client-side staging is needed (animate=false); a run
@@ -205,7 +205,7 @@ export default function CostSavingAgentPage() {
       )}
 
       {history.length > 0 && (
-        <Card className="p-4">
+        <Card>
           <h2 className="mb-3 text-sm font-semibold">{t("history")}</h2>
           <div className="mb-3 flex flex-wrap gap-2">
             <button
@@ -230,7 +230,7 @@ export default function CostSavingAgentPage() {
               onChange={(e) => setHistorySearch(e.target.value)}
               placeholder={t("historyFilter.searchPlaceholder")}
               aria-label={t("historyFilter.searchPlaceholder")}
-              className="ml-auto min-w-[160px] rounded-full border border-border bg-panel-2 px-3 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal"
+              className="ml-auto min-w-[160px] rounded-full border border-border bg-panel-2 px-3 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             />
           </div>
           <div className="flex flex-col gap-2">

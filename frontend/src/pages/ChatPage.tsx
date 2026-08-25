@@ -148,8 +148,8 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-8rem)]">
-      <Card className="flex flex-col flex-1 min-w-0 p-4">
-        <h1 className="text-xl font-bold mb-4">{t("title")}</h1>
+      <Card className="flex flex-col flex-1 min-w-0">
+        <h1 className="text-page-title font-bold mb-4">{t("title")}</h1>
         <div className="flex-1 overflow-auto flex flex-col gap-3 mb-3">
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
@@ -244,14 +244,14 @@ export default function ChatPage() {
         <form onSubmit={handle} className="flex gap-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("placeholder")} disabled={loading}
             aria-label={t("placeholder")}
-            className="flex-1 rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal" />
+            className="flex-1 rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
           <button type="submit" disabled={loading} className="rounded-full bg-teal px-4 py-2 text-xs font-semibold text-surface disabled:opacity-50">
             {loading ? "..." : t("send")}
           </button>
         </form>
       </Card>
 
-      <Card className="flex flex-col w-full lg:w-72 shrink-0 p-4 overflow-hidden">
+      <Card className="flex flex-col w-full lg:w-72 shrink-0 overflow-hidden">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-parchment">{t("history.title")}</h2>
           <button
