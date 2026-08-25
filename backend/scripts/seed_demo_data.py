@@ -1,14 +1,21 @@
 """
 Seed the database with realistic demo data for AI Spend Intelligence Platform.
 
-Creates 3 demo users and 9 processed documents (invoices/orders) spread over
-the last ~6 months, covering 7 of the 13 spend categories. Each document's
-source CSV is also written to disk under UPLOAD_DIR, matching the row-level
-data seeded in the database, so features that read from disk (e.g. the
+Creates 3 demo users. Since every read query scopes strictly by user_id (see
+.claude/rules/security-and-multitenancy.md Rule 1), each demo user needs
+their own documents to have anything to see - a shared pool owned by one
+user would leave the other two logins with an empty dashboard. The buyer
+gets the full 9-document/2-contract set below, deliberately constructed -
+and verified against the actual detection logic, not just "plausible" - to
+trigger every detection module on first login; admin and finance each get a
+smaller, role-appropriate set (ADMIN_DOCUMENTS / FINANCE_DOCUMENTS) just so
+their dashboard/documents/search views aren't empty. Each document's source
+CSV is also written to disk under UPLOAD_DIR, matching the row-level data
+seeded in the database, so features that read from disk (e.g. the
 "reprocess document" endpoint) work against real files instead of a
-dangling path reference. The data is deliberately constructed - and
-verified against the actual detection logic, not just "plausible" - to
-trigger every detection module on first login:
+dangling path reference.
+
+Buyer-set detection triggers:
 
   - Modulo 5 (Duplicate Detection): the same toner cartridge line appears
     twice on the same Office Depot invoice (same supplier + invoice number
@@ -222,6 +229,56 @@ DOCUMENTS = [
     ),
 ]
 
+# Documents for the admin demo user - IT infrastructure/security spend, the
+# kind of thing a platform administrator typically oversees. Kept small (no
+# anomaly/duplicate/variance triggers of their own); the point is just to
+# give the admin login a non-empty dashboard.
+ADMIN_DOCUMENTS = [
+    (
+        "fattura_licenze_server_admin.csv", "invoice", 3, "MS-2026-014", "Microsoft Corporation",
+        [
+            ("Licenza Windows Server 2022 Datacenter - license software enterprise", 2, 1450.00),
+            ("Licenza Antivirus Enterprise per endpoint aziendali - license security", 80, 14.50),
+        ],
+    ),
+    (
+        "ordine_hardware_datacenter_admin.csv", "order", 2, "ORD-IT-552", "Dell Technologies",
+        [
+            ("Server rack Dell PowerEdge R750 per data center - server hardware", 2, 7200.00),
+        ],
+    ),
+    (
+        "fattura_firewall_sicurezza_admin.csv", "invoice", 1, "SEC-2026-091", "CyberShield Networks",
+        [
+            ("Firewall aziendale nuova generazione - firewall network security", 1, 3400.00),
+        ],
+    ),
+]
+
+# Documents for the finance demo user - accounting/audit/tax advisory spend,
+# coherent with the finance role. Same purpose as ADMIN_DOCUMENTS above: a
+# non-empty dashboard, not a source of detection-module triggers.
+FINANCE_DOCUMENTS = [
+    (
+        "fattura_revisione_bilancio_finance.csv", "invoice", 3, "REV-2026-021", "KPMG Advisory",
+        [
+            ("Servizio di revisione contabile annuale del bilancio - audit consulting", 1, 9800.00),
+        ],
+    ),
+    (
+        "fattura_gestionale_erp_finance.csv", "invoice", 2, "SW-FIN-330", "SAP Italia",
+        [
+            ("Licenza software gestionale contabilita - license software ERP", 10, 65.00),
+        ],
+    ),
+    (
+        "fattura_consulenza_fiscale_finance.csv", "invoice", 0, "FISC-2026-018", "PwC Tax & Legal",
+        [
+            ("Consulenza fiscale societaria annuale - consulting advisory fiscale", 1, 6500.00),
+        ],
+    ),
+]
+
 # (filename, months_ago, invoice_number, supplier, annual_value, raw_text)
 # Contract documents: unlike DOCUMENTS above, these carry full contract text
 # (Document.raw_text) that gets chunked and indexed by
@@ -323,28 +380,15 @@ def wipe_demo_data(db) -> None:
     print(f"Wiped {len(doc_ids)} documents, {len(item_ids)} line items, {len(users)} demo users.")
 
 
-def seed(db) -> None:
-    users = {}
-    for u in DEMO_USERS:
-        user = User(
-            email=u["email"],
-            full_name=u["full_name"],
-            role=u["role"],
-            hashed_password=hash_password(u["password"]),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        users[u["email"]] = user
-        log_action(db, user_id=user.id, action="register", entity_type="user", entity_id=user.id, details={"seed": True})
-
-    buyer = users["demo.buyer@spendintel.io"]
-
-    for filename, dtype, months_ago, invoice_number, supplier, rows in DOCUMENTS:
+def _seed_documents(db, owner: User, documents: list) -> None:
+    """Seed one user's set of DOCUMENTS-shaped tuples (see module docstring
+    for the format) - classification, anomaly detection, vector upsert, and
+    duplicate grouping, exactly as the buyer's main document set gets."""
+    for filename, dtype, months_ago, invoice_number, supplier, rows in documents:
         created = _months_ago(months_ago)
         file_path, file_size = _write_demo_file(filename, supplier, invoice_number, rows)
         doc = Document(
-            user_id=buyer.id,
+            user_id=owner.id,
             filename=filename,
             original_name=filename,
             doc_type=DOC_TYPE_MAP[dtype],
@@ -427,6 +471,30 @@ def seed(db) -> None:
         anomaly_note = f" [+ {len(flagged)} anomaly flagged]" if flagged else ""
         print(f"  seeded {filename} - {len(items)} line items, supplier: {supplier}{dup_note}{anomaly_note}")
 
+
+def seed(db) -> None:
+    users = {}
+    for u in DEMO_USERS:
+        user = User(
+            email=u["email"],
+            full_name=u["full_name"],
+            role=u["role"],
+            hashed_password=hash_password(u["password"]),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        users[u["email"]] = user
+        log_action(db, user_id=user.id, action="register", entity_type="user", entity_id=user.id, details={"seed": True})
+
+    buyer = users["demo.buyer@spendintel.io"]
+    admin = users["demo.admin@spendintel.io"]
+    finance = users["demo.finance@spendintel.io"]
+
+    _seed_documents(db, buyer, DOCUMENTS)
+    _seed_documents(db, admin, ADMIN_DOCUMENTS)
+    _seed_documents(db, finance, FINANCE_DOCUMENTS)
+
     for filename, months_ago, contract_number, supplier, annual_value, raw_text in CONTRACTS:
         created = _months_ago(months_ago)
         file_path, file_size = _write_demo_file(
@@ -470,6 +538,14 @@ def seed(db) -> None:
     log_action(
         db, user_id=buyer.id, action="upload_document", entity_type="document",
         details={"seed": True, "documents": len(DOCUMENTS) + len(CONTRACTS)},
+    )
+    log_action(
+        db, user_id=admin.id, action="upload_document", entity_type="document",
+        details={"seed": True, "documents": len(ADMIN_DOCUMENTS)},
+    )
+    log_action(
+        db, user_id=finance.id, action="upload_document", entity_type="document",
+        details={"seed": True, "documents": len(FINANCE_DOCUMENTS)},
     )
 
     # Verify the Cost Saving Agent's data (not just "plausible", checked
