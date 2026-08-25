@@ -1,10 +1,9 @@
-from __future__ import annotations
-
-from sqlalchemy.orm import Session
-
 # user_id throughout this module accepts a single id, a list of ids (the
 # caller's visible role-scope, see core/deps.py::get_visible_user_ids), or
 # None (no filter - admin).
+from __future__ import annotations
+
+from sqlalchemy.orm import Session
 
 from app.models.document import Document, LineItem
 from app.services.agents.react_engine import Tool
