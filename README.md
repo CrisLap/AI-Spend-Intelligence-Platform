@@ -90,6 +90,7 @@ A few implementation details that aren't obvious from the module table above:
 - **Shared agent framework, not three stacks.** The Cost Saving, Forecast, and Contract Risk agents reuse the same `react_engine.py` + tool-registry pattern - a new agent is a new tool registry, system prompt, and recommendation function, not new infrastructure. All three share one table (`AgentRun.agent_type`), one endpoint (`agent_type` param), and one frontend page (a type selector), instead of three separate REST/UI stacks.
 - **Superlatives need a real ranking, not a similarity score.** `search_spend` only surfaces documents that are textually similar to the query, so "what was our highest expense" can silently miss a bigger item that just didn't match the query text - yet the model would still answer with full confidence. The Chat's system prompt now explicitly tells it to use the deterministic `top_expenses` tool (`agents/tools.py`, `ORDER BY total DESC`) for any highest/biggest/most-expensive question instead of inferring a superlative from `search_spend` hits alone.
 - **Guardrails apply everywhere an LLM sees free-text user input**, not just the Chat: `validate_input`/`sanitize_output` (`guardrails.py`) now guard the Cost Saving/Forecast/Contract Risk agents' `goal` too - a blocked goal skips the LLM call entirely, though the deterministic Recommendation Engine still runs (it depends on `agent_type` and real data, never on the goal text).
+- **Dashboard, Chat, and Cost Saving pages are lazily loaded.** `recharts` (Dashboard) and `react-markdown` (Chat, Cost Saving) accounted for most of a >500kB main-bundle warning at build time, so `App.tsx` code-splits those three routes with `React.lazy()` + a shared `Suspense` fallback instead of importing them eagerly with the rest of the app.
 - **Spend data visibility is scoped by role, not by individual user.** `get_visible_user_ids()` (`app/core/deps.py`) resolves, per request, the set of user ids the caller may see: everyone sharing their role, or no filter at all for Admin. Every read/write touching documents, line items, the dashboard, search, duplicates, anomalies, and contract clauses goes through this - both on the PostgreSQL side (`user_id IN (...)`) and on the Qdrant side (a `MatchAny` filter on the same ids), so vector search results never drift out of sync with what the relational queries return. Admin is enforced as a singleton: promoting a second user to Admin (`PATCH /users/{id}/role`) automatically demotes the current one to Buyer in the same transaction, rather than allowing two Admins to exist. The classifier's feedback exemplars (`classifier.py::_FEEDBACK_EXEMPLARS`) are similarly scoped by `(role, category)` instead of being one global pool, so a Buyer's corrections don't bias Finance's classifications. Chat sessions and Cost Saving Agent run history are the deliberate exception - they stay private per individual user even though the spend data they analyze is shared.
 
 ## Quick Start
@@ -274,7 +275,7 @@ in `.env.example`.
 | `QDRANT_API_KEY` | _(unset)_ | Required for Qdrant Cloud, unused for a local/self-hosted instance |
 | `QDRANT_COLLECTION` | `spend_documents` | Qdrant collection for invoice/order line items |
 | `QDRANT_CONTRACT_COLLECTION` | `spend_contracts` | Separate Qdrant collection for contract-clause chunks (contract point ids reuse the DB's own ids, so this must not collide with `QDRANT_COLLECTION`) |
-| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Allowed CORS origins |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Allowed CORS origins — **the app refuses to start with a localhost-only value when `ENVIRONMENT=production`** |
 | `ANOMALY_ZSCORE_THRESHOLD` | `2.5` | Z-score anomaly threshold |
 | `DUPLICATE_SIMILARITY_THRESHOLD` | `0.88` | Similarity threshold for dupes |
 
@@ -288,7 +289,7 @@ cd frontend
 npm test
 ```
 
-Backend: 162 pytest tests across 29 files (`backend/tests/`). Frontend:
+Backend: 166 pytest tests across 29 files (`backend/tests/`). Frontend:
 Vitest + React Testing Library, covering `AgentStepTimeline` and
 `RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
 
@@ -342,7 +343,7 @@ backend/
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
   scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
-  tests/               → 162 pytest tests (29 files)
+  tests/               → 166 pytest tests (29 files)
   Dockerfile
 frontend/
   src/
@@ -351,7 +352,7 @@ frontend/
                           DuplicatesPage, AdminUsers (11 pages)
     components/        → Layout, Card, AgentStepTimeline, RecommendationCard, ForecastChart,
                           BackendWakingBanner, ConfirmDialog, ErrorBoundary, InlineError,
-                          Markdown, Skeleton, TableScroll, ToastContainer
+                          Markdown, NotFound, Skeleton, TableScroll, ToastContainer
     hooks/             → useBackendWaking, useDocumentTitle
     api.ts             → API client
   vercel.json          → Vercel deploy config
