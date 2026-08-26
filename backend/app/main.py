@@ -68,6 +68,16 @@ def _check_required_config():
             "DATABASE_URL is still pointing at a local/dev database default. "
             "Set a real DATABASE_URL environment variable before starting in production."
         )
+    # Recomputed from settings.cors_origins directly (not the module-level
+    # `origins` above, which is fixed at import time) so this check reflects
+    # whatever CORS_ORIGINS actually is at startup.
+    cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    if not cors_origins or all("localhost" in o or "127.0.0.1" in o for o in cors_origins):
+        raise RuntimeError(
+            "CORS_ORIGINS is still set to the localhost-only default. "
+            "Set a real CORS_ORIGINS environment variable (the deployed frontend's "
+            "origin) before starting in production."
+        )
 
 
 @app.on_event("startup")

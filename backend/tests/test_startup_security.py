@@ -30,14 +30,53 @@ def test_startup_rejects_default_database_url_in_production():
 
 
 def test_startup_allows_custom_config_in_production():
-    original_env, original_key, original_db = settings.environment, settings.secret_key, settings.database_url
+    original_env, original_key, original_db, original_cors = (
+        settings.environment, settings.secret_key, settings.database_url, settings.cors_origins,
+    )
     settings.environment = "production"
     settings.secret_key = "a-real-random-secret"
     settings.database_url = "postgresql://user:pass@neon.example.com:5432/spendintel"
+    settings.cors_origins = "https://app.example.com"
     try:
         _check_required_config()  # should not raise
     finally:
-        settings.environment, settings.secret_key, settings.database_url = original_env, original_key, original_db
+        settings.environment, settings.secret_key, settings.database_url, settings.cors_origins = (
+            original_env, original_key, original_db, original_cors,
+        )
+
+
+def test_startup_rejects_default_cors_origins_in_production():
+    original_env, original_key, original_db, original_cors = (
+        settings.environment, settings.secret_key, settings.database_url, settings.cors_origins,
+    )
+    settings.environment = "production"
+    settings.secret_key = "a-real-random-secret"
+    settings.database_url = "postgresql://user:pass@neon.example.com:5432/spendintel"
+    settings.cors_origins = "http://localhost:5173,http://localhost:3000"
+    try:
+        with pytest.raises(RuntimeError):
+            _check_required_config()
+    finally:
+        settings.environment, settings.secret_key, settings.database_url, settings.cors_origins = (
+            original_env, original_key, original_db, original_cors,
+        )
+
+
+def test_startup_rejects_empty_cors_origins_in_production():
+    original_env, original_key, original_db, original_cors = (
+        settings.environment, settings.secret_key, settings.database_url, settings.cors_origins,
+    )
+    settings.environment = "production"
+    settings.secret_key = "a-real-random-secret"
+    settings.database_url = "postgresql://user:pass@neon.example.com:5432/spendintel"
+    settings.cors_origins = ""
+    try:
+        with pytest.raises(RuntimeError):
+            _check_required_config()
+    finally:
+        settings.environment, settings.secret_key, settings.database_url, settings.cors_origins = (
+            original_env, original_key, original_db, original_cors,
+        )
 
 
 def test_startup_skips_checks_outside_production():

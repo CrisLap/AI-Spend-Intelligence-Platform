@@ -5,6 +5,8 @@ import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 
+from app.services.guardrails import sanitize_output
+
 
 @dataclass
 class Tool:
@@ -202,6 +204,9 @@ def iter_react_steps(
     behavior this implements; this function only changes *how* the result
     is delivered (incrementally vs. all at once), not the loop's logic.
     """
+    if max_steps <= 0:
+        raise ValueError("max_steps must be a positive integer")
+
     tool_map = {t.name: t for t in tools}
     tool_schemas = [tool_to_openai_schema(t) for t in tools] if chat_with_tools_fn else None
 
@@ -233,14 +238,18 @@ def iter_react_steps(
             thought = thought_match.group(1).strip() if thought_match else None
             mode = "text_parsed"
 
-        if final_answer:
+        if final_answer is not None:
             step_obj = ReactStep(index=step, thought=thought, tool=None, tool_input=None, observation=None, mode=None)
             yield step_obj, final_answer
             return
 
         if tool_name and tool_name in tool_map and step < max_steps - 1:
             tool = tool_map[tool_name]
-            observation_text = format_observations(tool.fn(tool_input))
+            # Tool output can echo uploaded-document content verbatim (see
+            # agents/tools.py) - redact it the same way the final answer
+            # already is, since this text is streamed to the client as-is
+            # per SSE step (step_to_dict), not just used internally.
+            observation_text = sanitize_output(format_observations(tool.fn(tool_input)))
             scratchpad_steps.append(f'Thought/Action (step {step + 1}): called {tool_name}["{tool_input}"]')
             scratchpad_steps.append(f"Observation {step + 1}: {observation_text}")
             step_obj = ReactStep(

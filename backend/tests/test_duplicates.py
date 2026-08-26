@@ -8,6 +8,7 @@ class FakeItem:
         self.total = total
         self.supplier = supplier
         self.invoice_number = inv_num
+        self.embedding_cache = None  # find_duplicates reads/writes this, mirroring LineItem's real column
 
 
 def test_exact_invoice_duplicate():

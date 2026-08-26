@@ -3,12 +3,13 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_ui_language, get_visible_user_ids
+from app.core.rate_limit import limiter
 from app.models.document import (
     ContractClause,
     DocType,
@@ -162,7 +163,9 @@ def upload_document(
 
 
 @router.post("/{doc_id}/process", response_model=DocumentWithItems)
+@limiter.limit("20/minute")
 def process_document(
+    request: Request,
     doc_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),

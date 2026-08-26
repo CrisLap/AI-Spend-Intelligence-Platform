@@ -15,6 +15,7 @@ from app.models.feedback import Feedback
 from app.models.user import User
 from app.schemas.user import RoleUpdate, UserOut
 from app.services.audit_service import log_action
+from app.services.vector_store import delete_contract_chunks, delete_line_items
 
 VALID_ROLES = {"admin", "buyer", "finance"}
 
@@ -58,7 +59,17 @@ def update_user_role(
     # *other* admin to demote.)
     demoted: list[User] = []
     if payload.role == "admin":
-        demoted = db.query(User).filter(User.role == "admin", User.id != user_id).all()
+        # with_for_update() locks the matching admin row(s) until this
+        # transaction commits, so two concurrent promotions can't both read
+        # the same still-undemoted admin and both commit - the second
+        # request blocks here until the first's transaction finishes, then
+        # re-reads and finds no admin left to demote.
+        demoted = (
+            db.query(User)
+            .filter(User.role == "admin", User.id != user_id)
+            .with_for_update()
+            .all()
+        )
         for other in demoted:
             other.role = _ADMIN_DEMOTION_ROLE
 
@@ -133,6 +144,7 @@ def delete_user(
         except Exception:
             pass
     item_ids = [i.id for i in db.query(LineItem.id).filter(LineItem.document_id.in_(doc_ids)).all()]
+    clause_ids = [c.id for c in db.query(ContractClause.id).filter(ContractClause.document_id.in_(doc_ids)).all()]
     group_ids = [
         g.group_id
         for g in db.query(LineItemGroupItem.group_id).filter(LineItemGroupItem.line_item_id.in_(item_ids)).distinct()
@@ -156,6 +168,12 @@ def delete_user(
     db.query(AuditLog).filter(AuditLog.user_id == user_id).delete(synchronize_session=False)
     db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
     db.commit()
+
+    # Postgres and Qdrant are separate stores for the same data - purge the
+    # deleted user's vectors too, or an admin's unfiltered search can still
+    # surface them as if the underlying row still existed.
+    delete_line_items(item_ids)
+    delete_contract_chunks(clause_ids)
 
     log_action(
         db,

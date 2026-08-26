@@ -11,6 +11,7 @@ from app.models.document import Document, LineItem
 from app.services.agents.react_engine import step_to_dict
 from app.services.ai import cosine_similarity, embed_text
 from app.services.chat_react import answer_with_react, answer_with_react_stream
+from app.services.guardrails import validate_input
 from app.services.vector_store import search as qdrant_search
 
 _MAX_HISTORY_TOKENS = 4000
@@ -40,7 +41,13 @@ def _summarize_history(older_messages: list[ChatMessage], db: Session, session: 
     conversation keeps growing, instead of only covering the latest cut."""
     if not older_messages:
         return session.summary or ""
-    text = "\n".join(f"{m.role}: {m.content[:200]}" for m in older_messages)
+    # Guard each message the same way the live turn would: a message that
+    # validate_input would have blocked in the moment must not reach this
+    # summarization prompt just because it aged out of the trimmed window.
+    text = "\n".join(
+        f"{m.role}: {(m.content or '')[:200] if validate_input(m.content or '') is None else '[redacted]'}"
+        for m in older_messages
+    )
     prompt = "Summarize this spend analysis conversation briefly, in 2-3 sentences."
     if session.summary:
         prompt += f"\nExisting summary so far: {session.summary}"

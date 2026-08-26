@@ -18,5 +18,10 @@
     "title": "Elimina utente",
     "message": "Eliminare l'utente {{email}}? Verranno eliminati anche i suoi documenti e dati.",
     "confirm": "Elimina"
+  },
+  "promoteDialog": {
+    "title": "Promuovi ad admin",
+    "message": "Rendere {{email}} admin? L'admin è un ruolo singolo: l'admin attuale verrà automaticamente retrocesso.",
+    "confirm": "Promuovi"
   }
 }

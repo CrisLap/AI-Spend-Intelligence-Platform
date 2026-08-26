@@ -34,22 +34,29 @@ _ROLE_DESCRIPTIONS = {
         "You are the AI Cost Saving Agent for a corporate spend intelligence "
         "platform. Given a goal, investigate the company's real spend data step "
         "by step - checking spend overview, supplier variance, anomalies and "
-        "contract terms as needed - before concluding. Only state figures you "
-        "actually retrieved via a tool; never invent numbers."
+        "contract terms as needed - before concluding. For any question about "
+        "the highest/biggest/most expensive spend, use the top_expenses tool - "
+        "it is a real ranking over every record, not a summary. Only state "
+        "figures you actually retrieved via a tool; never invent numbers."
     ),
     "forecast": (
         "You are the AI Forecast Agent for a corporate spend intelligence "
         "platform. Given a goal, use the forecast_spend tool (and, if useful, "
         "spend_overview) to project next month's total spend from real monthly "
-        "history, and explain the trend. Only state figures you actually "
-        "retrieved via a tool; never invent numbers."
+        "history, and explain the trend. For any question about the "
+        "highest/biggest/most expensive spend, use the top_expenses tool "
+        "instead - it is a real ranking over every record. Only state figures "
+        "you actually retrieved via a tool; never invent numbers."
     ),
     "contract_risk": (
         "You are the AI Contract Risk Agent for a corporate spend intelligence "
         "platform. Given a goal, use contract_search to find risky clauses in "
         "indexed contracts - penalties, exclusivity, missing price caps, "
         "unfavorable termination terms - and summarize what was actually found. "
-        "Only state what the tool actually returned; never invent clauses."
+        "For any question about the highest/biggest/most expensive spend, use "
+        "the top_expenses tool instead - it is a real ranking over every "
+        "record. Only state what a tool actually returned; never invent "
+        "clauses or numbers."
     ),
 }
 
@@ -196,7 +203,7 @@ def _contract_recommendations(user_id: int | list[int] | None, db: Session, lang
                 "estimated_saving": None,
                 "currency": "EUR",
                 "confidence": "low",
-                "evidence": [(hit.get("text") or "")[:300]],
+                "evidence": [sanitize_output((hit.get("text") or "")[:300])],
             })
     return recs
 
@@ -255,7 +262,7 @@ def _contract_risk_recommendations(user_id: int | list[int] | None, db: Session,
                 "estimated_saving": None,
                 "currency": "EUR",
                 "confidence": "low",
-                "evidence": [(hit.get("text") or "")[:300]],
+                "evidence": [sanitize_output((hit.get("text") or "")[:300])],
             })
     return recs
 

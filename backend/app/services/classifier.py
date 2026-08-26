@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from app.services.ai import chat, cosine_similarity, embed_text
 
 UNSPSC_TAXONOMY: dict[str, list[str]] = {
@@ -135,7 +137,6 @@ def _llm_based(desc: str) -> tuple[str, float] | None:
     prompt = _CLASSIFY_LLM_PROMPT.format(categories=", ".join(cats), desc=desc)
     try:
         result = chat([{"role": "user", "content": prompt}])
-        import json
         parsed = json.loads(result)
         cat = parsed.get("category", "")
         conf = max(0.0, min(1.0, float(parsed.get("confidence", 0.5))))

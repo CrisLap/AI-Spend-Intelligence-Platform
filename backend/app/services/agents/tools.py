@@ -189,6 +189,7 @@ def build_tools(user_id: int | list[int] | None, db: Session) -> list[Tool]:
             fn=_anomaly_scan_tool(user_id, db),
         ),
         contract_search_tool_for(user_id, db),
+        top_expenses_tool_for(user_id, db),
     ]
 
 
@@ -200,7 +201,7 @@ def build_forecast_tools(user_id: int | list[int] | None, db: Session) -> list[T
         name="spend_overview",
         description='get an overview of total spend and top categories. Input is ignored - pass "overview".',
         fn=_spend_overview_tool(user_id, db),
-    )]
+    ), top_expenses_tool_for(user_id, db)]
 
 
 def build_contract_risk_tools(user_id: int | list[int] | None, db: Session) -> list[Tool]:
@@ -208,4 +209,4 @@ def build_contract_risk_tools(user_id: int | list[int] | None, db: Session) -> l
     contract_search tool the Cost Saving Agent uses for renewal clauses -
     only the system prompt and search queries around it differ (see
     cost_saving_agent.py's _CONTRACT_RISK_SEARCH_QUERIES)."""
-    return [contract_search_tool_for(user_id, db)]
+    return [contract_search_tool_for(user_id, db), top_expenses_tool_for(user_id, db)]

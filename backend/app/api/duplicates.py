@@ -46,21 +46,35 @@ def list_duplicates(
         query = query.filter(LineItemGroup.resolved == False)  # noqa: E712
     groups = query.order_by(LineItemGroup.created_at.desc()).offset(skip).limit(limit).all()
     scope = get_visible_user_ids(user, db)
+    group_ids = [g.id for g in groups]
+
+    # Two batched queries for the whole page instead of one query per group
+    # plus one query per item in that group (previously N+1).
+    links = (
+        db.query(LineItemGroupItem).filter(LineItemGroupItem.group_id.in_(group_ids)).all()
+        if group_ids else []
+    )
+    links_by_group: dict[int, list[int]] = {}
+    for link in links:
+        links_by_group.setdefault(link.group_id, []).append(link.line_item_id)
+
+    line_item_ids = [link.line_item_id for link in links]
+    items_by_id: dict[int, LineItem] = {}
+    if line_item_ids:
+        item_query = (
+            db.query(LineItem)
+            .join(Document, LineItem.document_id == Document.id)
+            .filter(LineItem.id.in_(line_item_ids))
+        )
+        if scope is not None:
+            item_query = item_query.filter(Document.user_id.in_(scope))
+        items_by_id = {item.id: item for item in item_query.all()}
+
     result = []
     for g in groups:
-        group_item_links = db.query(LineItemGroupItem).filter(
-            LineItemGroupItem.group_id == g.id
-        ).all()
         group_items = []
-        for gi in group_item_links:
-            item_query = (
-                db.query(LineItem)
-                .join(Document, LineItem.document_id == Document.id)
-                .filter(LineItem.id == gi.line_item_id)
-            )
-            if scope is not None:
-                item_query = item_query.filter(Document.user_id.in_(scope))
-            item = item_query.first()
+        for line_item_id in links_by_group.get(g.id, []):
+            item = items_by_id.get(line_item_id)
             if item:
                 group_items.append({
                     "id": item.id,

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import math
+
+import numpy as np
 
 from app.models.document import LineItem
 from app.services.ai import cosine_similarity, embed_text
@@ -25,7 +28,35 @@ def _amounts_close(a: float, b: float, rel_tol: float = 0.02) -> bool:
     return math.isclose(a, b, rel_tol=rel_tol, abs_tol=0.01)
 
 
+def _cached_embedding(item: LineItem) -> np.ndarray | None:
+    """Read a previously persisted embedding for this line item, if any -
+    same cache format/convention as search.py's helper of the same name."""
+    if not item.embedding_cache:
+        return None
+    try:
+        return np.array(json.loads(item.embedding_cache), dtype=np.float32)
+    except (ValueError, TypeError):
+        return None
+
+
 def find_duplicates(items: list[LineItem], threshold: float = 0.88, lang: str = "en") -> list[dict]:
+    # Embed each item once up front (reusing/populating embedding_cache the
+    # way search.py does) instead of re-embedding on every pairwise
+    # comparison in the O(n^2) loop below - this used to re-embed the same
+    # description many times over as the item list grew. Indexed by
+    # position (not item.id) since callers aren't guaranteed to pass
+    # already-persisted rows with unique ids.
+    vectors: list[np.ndarray | None] = []
+    for item in items:
+        if not item.description:
+            vectors.append(None)
+            continue
+        vec = _cached_embedding(item)
+        if vec is None:
+            vec = embed_text(item.description)
+            item.embedding_cache = json.dumps(vec.tolist())
+        vectors.append(vec)
+
     groups = []
     used = set()
     for i in range(len(items)):
@@ -37,6 +68,12 @@ def find_duplicates(items: list[LineItem], threshold: float = 0.88, lang: str = 
         # score, instead of the group always being reported as 100% similar
         # even when it was only an approximate match.
         cluster_similarities: list[float] = []
+        # Whether each joined member matched via the exact-fields path (True)
+        # or only via cosine similarity (False) - the group's reason must
+        # reflect the weakest path actually used, not just the anchor's own
+        # fields (a cluster can be anchored by an item with an invoice
+        # number while another member only matched via similarity).
+        cluster_exact: list[bool] = [True]
         for j in range(i + 1, len(items)):
             if j in used:
                 continue
@@ -54,18 +91,18 @@ def find_duplicates(items: list[LineItem], threshold: float = 0.88, lang: str = 
             if exact:
                 cluster.append(j)
                 cluster_similarities.append(1.0)
+                cluster_exact.append(True)
                 continue
-            if a.description and b.description:
-                sim = cosine_similarity(embed_text(a.description), embed_text(b.description))
+            vec_a, vec_b = vectors[i], vectors[j]
+            if vec_a is not None and vec_b is not None:
+                sim = cosine_similarity(vec_a, vec_b)
                 if sim >= threshold and _amounts_close(a.total, b.total):
                     cluster.append(j)
                     cluster_similarities.append(sim)
+                    cluster_exact.append(False)
         if len(cluster) > 1:
             used.update(cluster)
-            reason = _t(
-                _STRINGS, lang,
-                "exact_match" if items[cluster[0]].invoice_number else "similar_match",
-            )
+            reason = _t(_STRINGS, lang, "exact_match" if all(cluster_exact) else "similar_match")
             groups.append({
                 "reason": reason,
                 # Report the weakest link in the cluster, not an

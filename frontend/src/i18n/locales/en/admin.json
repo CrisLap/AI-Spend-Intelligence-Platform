@@ -18,5 +18,10 @@
     "title": "Delete user",
     "message": "Delete user {{email}}? This also deletes their documents and data.",
     "confirm": "Delete"
+  },
+  "promoteDialog": {
+    "title": "Promote to admin",
+    "message": "Make {{email}} an admin? Admin is a single role — the current admin will be automatically demoted.",
+    "confirm": "Promote"
   }
 }

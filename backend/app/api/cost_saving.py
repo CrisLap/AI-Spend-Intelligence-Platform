@@ -65,7 +65,7 @@ def analyze_cost_saving(
 @limiter.limit("20/minute")
 def analyze_cost_saving_stream(
     request: Request,
-    goal: str = "Trova opportunità di risparmio",
+    goal: str = Query("Trova opportunità di risparmio", max_length=500),
     agent_type: str = "cost_saving",
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),

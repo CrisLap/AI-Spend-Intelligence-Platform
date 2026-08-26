@@ -144,7 +144,7 @@ def chat_with_tools(messages: list[dict], tools: list[dict]) -> dict:
     Returns {"content": str | None, "tool_calls": list[dict] | None}.
     """
     text = _ollama_chat(messages)
-    if text:
+    if text is not None:
         return {"content": text, "tool_calls": None}
     structured = _groq_chat_with_tools(messages, tools)
     if structured:
@@ -164,10 +164,10 @@ def embed_text(text: str) -> np.ndarray:
 
 def chat(messages: list[dict]) -> str:
     result = _ollama_chat(messages)
-    if result:
+    if result is not None:
         return result
     result = _groq_chat(messages)
-    if result:
+    if result is not None:
         return result
     return _offline_fallback(messages)
 
@@ -189,7 +189,15 @@ def _hash_embed(text: str, dim: int = 256) -> np.ndarray:
 
 
 def _offline_fallback(messages: list[dict]) -> str:
-    last = messages[-1]["content"] if messages else ""
+    # The terminal fallback tier: nothing further to fall back to if this
+    # itself raises, so - unlike every other tier here, which already
+    # degrades on a failed HTTP call - this needs its own guard against a
+    # malformed last message (missing "content" key, non-dict entry, etc.).
+    try:
+        last = (messages[-1].get("content") or "") if messages else ""
+    except Exception:
+        logger.exception("Offline fallback couldn't read the last message; returning a generic reply")
+        last = ""
     return f"[Offline] Cannot answer without an LLM. Received question: {last[:200]}"
 
 

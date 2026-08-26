@@ -4,6 +4,7 @@ import json
 
 from app.services.ai import chat
 from app.services.cost_saving_agent import AGENT_TYPES
+from app.services.guardrails import validate_input
 
 _FORECAST_KEYWORDS = [
     "previsione", "prevedi", "forecast", "trend", "proietta", "proiezione",
@@ -65,6 +66,12 @@ _CLASSIFY_LLM_PROMPT = (
 
 
 def _llm_based(message: str) -> dict | None:
+    # Called before validate_input runs downstream in chat_react.py/
+    # cost_saving_agent.py, so a message that guard would block still needs
+    # a guard here - otherwise intent classification sends it to the LLM
+    # unguarded regardless of what happens after routing.
+    if validate_input(message) is not None:
+        return None
     prompt = _CLASSIFY_LLM_PROMPT.format(message=message)
     try:
         result = chat([{"role": "user", "content": prompt}])

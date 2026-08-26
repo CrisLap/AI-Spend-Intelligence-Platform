@@ -33,6 +33,11 @@
     "description": "An unexpected error occurred. You can keep using the rest of the app from the sidebar, or reload this page.",
     "reload": "Reload"
   },
+  "notFound": {
+    "title": "Page not found.",
+    "description": "The page you're looking for doesn't exist or was moved.",
+    "backHome": "Back to Dashboard"
+  },
   "retry": "Retry",
   "theme": {
     "switchToLight": "Switch to light theme",

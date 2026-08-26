@@ -14,6 +14,7 @@ import SemanticSearch from "./pages/SemanticSearch";
 import AnomaliesPage from "./pages/AnomaliesPage";
 import DuplicatesPage from "./pages/DuplicatesPage";
 import AdminUsers from "./pages/AdminUsers";
+import NotFound from "./components/NotFound";
 
 // Pull in recharts (Dashboard) / react-markdown (Chat, Cost Saving) only
 // when the user actually navigates there - these two libraries were the
@@ -75,6 +76,7 @@ export default function App() {
                 <Route path="/anomalies" element={<AnomaliesPage />} />
                 <Route path="/duplicates" element={<DuplicatesPage />} />
                 {user.role === "admin" && <Route path="/admin" element={<AdminUsers />} />}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>

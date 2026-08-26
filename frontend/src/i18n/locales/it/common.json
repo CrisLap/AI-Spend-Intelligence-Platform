@@ -33,6 +33,11 @@
     "description": "È avvenuto un errore imprevisto. Puoi continuare a usare il resto dell'app dalla barra laterale, oppure ricaricare questa pagina.",
     "reload": "Ricarica"
   },
+  "notFound": {
+    "title": "Pagina non trovata.",
+    "description": "La pagina che stai cercando non esiste o è stata spostata.",
+    "backHome": "Torna alla Dashboard"
+  },
   "retry": "Riprova",
   "theme": {
     "switchToLight": "Passa al tema chiaro",

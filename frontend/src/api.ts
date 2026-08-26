@@ -108,7 +108,14 @@ async function request(path: string, opts: RequestInit = {}) {
   if (!res.ok) {
     if (res.status === 401 && _onUnauthorized) _onUnauthorized();
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
+    // FastAPI/Pydantic validation failures (422) return `detail` as an
+    // array of {loc, msg, type} objects, not a string - join those into
+    // one readable message instead of letting Error() coerce the array to
+    // "[object Object]".
+    const detail = Array.isArray(err.detail)
+      ? err.detail.map((d: any) => d?.msg ?? JSON.stringify(d)).join("; ")
+      : err.detail;
+    throw new Error(detail || res.statusText);
   }
   if (res.status === 204) return null;
   return res.json();

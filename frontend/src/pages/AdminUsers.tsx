@@ -26,6 +26,7 @@ export default function AdminUsers() {
   const [retraining, setRetraining] = useState(false);
   const [retrainMessage, setRetrainMessage] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [promoteTarget, setPromoteTarget] = useState<User | null>(null);
   const { showToast } = useToast();
 
   function load() {
@@ -39,9 +40,25 @@ export default function AdminUsers() {
     // Promoting a user to admin transfers the role server-side (the
     // previous admin is demoted in the same request) - refetch the whole
     // list instead of patching just this row, so that demotion shows up too.
+    // That side effect on a different record is why this path requires
+    // confirmation the same as delete, gated in the select's onChange below.
     users.updateRole(u.id, role)
       .then(load)
       .catch((err: any) => showToast(err.message, "error"));
+  }
+
+  function handleRoleSelect(u: User, role: string) {
+    if (role === "admin" && u.role !== "admin") {
+      setPromoteTarget(u);
+      return;
+    }
+    handleRoleChange(u, role);
+  }
+
+  function confirmPromote() {
+    if (!promoteTarget) return;
+    handleRoleChange(promoteTarget, "admin");
+    setPromoteTarget(null);
   }
 
   function confirmDelete() {
@@ -101,7 +118,7 @@ export default function AdminUsers() {
                     <td className="p-3">
                       <select
                         value={u.role}
-                        onChange={(e) => handleRoleChange(u, e.target.value)}
+                        onChange={(e) => handleRoleSelect(u, e.target.value)}
                         className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                       >
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -150,6 +167,14 @@ export default function AdminUsers() {
         confirmLabel={t("deleteDialog.confirm")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+      <ConfirmDialog
+        open={promoteTarget !== null}
+        title={t("promoteDialog.title")}
+        message={promoteTarget ? t("promoteDialog.message", { email: promoteTarget.email }) : ""}
+        confirmLabel={t("promoteDialog.confirm")}
+        onConfirm={confirmPromote}
+        onCancel={() => setPromoteTarget(null)}
       />
     </div>
   );

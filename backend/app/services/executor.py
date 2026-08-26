@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 _executor: ThreadPoolExecutor | None = None
+_init_lock = threading.RLock()
 
 
 def get_executor(max_workers: int = 4) -> ThreadPoolExecutor:
     global _executor
     if _executor is None:
-        _executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="spendintel")
+        with _init_lock:
+            if _executor is None:  # re-check inside the lock (double-checked locking)
+                _executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="spendintel")
     return _executor
 
 
