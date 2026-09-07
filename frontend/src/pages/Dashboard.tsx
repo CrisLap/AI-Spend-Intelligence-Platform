@@ -99,7 +99,7 @@ export default function Dashboard() {
           <h2 className="text-sm font-semibold mb-3">{t("spendByCategory")}</h2>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={pieData} dataKey="total" nameKey="category" cx="50%" cy="50%" outerRadius={90} label={({ category, percentage }) => `${category} ${percentage}%`}>
+              <Pie data={pieData} dataKey="total" nameKey="category" cx="50%" cy="50%" outerRadius={90} label={(props: { category?: string; percentage?: number }) => `${props.category} ${props.percentage}%`}>
                 {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
               <Tooltip />
