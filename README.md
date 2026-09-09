@@ -63,7 +63,7 @@ numbers.
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic, ThreadPoolExecutor
 - **AI:** Ollama (local LLM & embeddings), ReAct reasoning, Groq (free-tier cloud fallback when Ollama is unreachable, e.g. in production), fallback to deterministic hash embeddings offline
 - **Database:** PostgreSQL, Qdrant vector store
-- **Frontend:** React 19, TypeScript, Tailwind CSS v4, Recharts
+- **Frontend:** React 19, TypeScript, Tailwind CSS v4, Recharts, i18next (EN/IT)
 - **DevOps:** Docker, Docker Compose, GitHub Actions (CI/CD), Render
 
 ## Modules
@@ -85,6 +85,7 @@ numbers.
 | 13 | Forecast Agent | Same agent framework, one tool: projects next month's total spend with a linear-trend fit over real monthly history (`agent_type=forecast`) |
 | 14 | Contract Risk Agent | Same agent framework and contract-clause RAG as the Cost Saving Agent, searched for risk language instead - penalties, exclusivity, missing price caps (`agent_type=contract_risk`) |
 | 15 | AI Assistant (intent router) | `POST /assistant` is a single entry point that classifies a message as a spend question or an agent goal (rule-based keyword tiers, LLM fallback) and routes it: a spend question is answered by the RAG chat inline, a cost-saving/forecast/contract-risk goal comes back as a handoff suggestion the Chat page uses to jump to the Cost Saving Agent page, prefilled and ready to run |
+| 16 | Public Landing Page | Marketing/landing page (`/`) shown to unauthenticated visitors, with its own `PublicHeader`; localized EN/IT like the rest of the app |
 
 ## Design Notes
 
@@ -96,6 +97,7 @@ A few implementation details that aren't obvious from the module table above:
 - **Superlatives need a real ranking, not a similarity score.** `search_spend` only surfaces documents that are textually similar to the query, so "what was our highest expense" can silently miss a bigger item that just didn't match the query text - yet the model would still answer with full confidence. The Chat's system prompt now explicitly tells it to use the deterministic `top_expenses` tool (`agents/tools.py`, `ORDER BY total DESC`) for any highest/biggest/most-expensive question instead of inferring a superlative from `search_spend` hits alone.
 - **Guardrails apply everywhere an LLM sees free-text user input**, not just the Chat: `validate_input`/`sanitize_output` (`guardrails.py`) now guard the Cost Saving/Forecast/Contract Risk agents' `goal` too - a blocked goal skips the LLM call entirely, though the deterministic Recommendation Engine still runs (it depends on `agent_type` and real data, never on the goal text).
 - **Dashboard, Chat, and Cost Saving pages are lazily loaded.** `recharts` (Dashboard) and `react-markdown` (Chat, Cost Saving) accounted for most of a >500kB main-bundle warning at build time, so `App.tsx` code-splits those three routes with `React.lazy()` + a shared `Suspense` fallback instead of importing them eagerly with the rest of the app.
+- **Every user-facing string is localized (EN/IT), not just labels.** Frontend strings live in `frontend/src/i18n/locales/{en,it}/*.json`, one JSON file per feature area, read via `react-i18next`; `frontend/scripts/check-i18n-parity.mjs` enforces that both languages define the same keys and fails CI (`npm run check-i18n`, part of the `frontend-lint` job) if a new string is added to only one locale file. Backend-generated user-facing text (guardrail messages, anomaly/duplicate reasons, recommendation text) is localized the same way via `app/services/i18n_strings.py`, rendered once in the requester's language at generation time and stored fixed rather than re-rendered per viewer.
 - **Spend data visibility is scoped by role, not by individual user.** `get_visible_user_ids()` (`app/core/deps.py`) resolves, per request, the set of user ids the caller may see: everyone sharing their role, or no filter at all for Admin. Every read/write touching documents, line items, the dashboard, search, duplicates, anomalies, and contract clauses goes through this - both on the PostgreSQL side (`user_id IN (...)`) and on the Qdrant side (a `MatchAny` filter on the same ids), so vector search results never drift out of sync with what the relational queries return. Admin is enforced as a singleton: promoting a second user to Admin (`PATCH /users/{id}/role`) automatically demotes the current one to Buyer in the same transaction, rather than allowing two Admins to exist. The classifier's feedback exemplars (`classifier.py::_FEEDBACK_EXEMPLARS`) are similarly scoped by `(role, category)` instead of being one global pool, so a Buyer's corrections don't bias Finance's classifications. Chat sessions and Cost Saving Agent run history are the deliberate exception - they stay private per individual user even though the spend data they analyze is shared.
 
 ## Quick Start
@@ -244,7 +246,9 @@ in `.env.example`.
 | PATCH | `/classification/line-items/{id}` | Correct a classification (auto-seeds feedback) |
 | POST | `/classification/retrain` | Bulk-retrain classifier from user feedback (admin/finance only) |
 | GET | `/anomalies` | List flagged anomalies |
+| PATCH | `/anomalies/{line_item_id}/resolve` | Mark an anomaly as resolved/unresolved |
 | GET | `/duplicates` | List duplicate groups |
+| PATCH | `/duplicates/{group_id}/resolve` | Mark a duplicate group as resolved/unresolved |
 | GET | `/analytics/dashboard` | Dashboard aggregations |
 | POST | `/feedback` | Submit user feedback |
 | POST | `/chat` | Ask a question (ReAct RAG with guardrails & memory) |
@@ -266,6 +270,7 @@ in `.env.example`.
 | `DATABASE_URL` | `postgresql://...` | PostgreSQL connection string |
 | `SECRET_KEY` | `change-me-in-production` | JWT signing key — **the app refuses to start with this default when `ENVIRONMENT=production`** |
 | `MAX_UPLOAD_MB` | `50` | Max upload size, enforced on `/documents/upload` (rejects with 413 above this, 415 for unsupported file types) |
+| `UPLOAD_DIR` | `./data/uploads` | Local filesystem path where uploaded documents are stored |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
 | `OLLAMA_CHAT_MODEL` | `llama3.2` | Model for chat completions |
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Model for embeddings |
@@ -311,7 +316,7 @@ Measures retrieval precision, answer relevance, and faithfulness against a curat
 
 | Workflow | Trigger | Jobs |
 |----------|---------|------|
-| `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), frontend typecheck (tsc), frontend build (vite), frontend tests (vitest) |
+| `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), backend dependency audit (pip-audit, non-blocking), frontend lint (tsc typecheck + i18n key-parity check + `npm audit --audit-level=high`), frontend build (vite), frontend tests (vitest) |
 | `cd.yml` | Push to `main` | Build Docker image → push to GHCR → deploy to Render |
 | `keepalive.yml` | Schedule (every 10 min) + manual dispatch | Ping `/health` on the deployed Render API to keep the free-tier service warm |
 
@@ -352,13 +357,14 @@ backend/
   Dockerfile
 frontend/
   src/
-    pages/             → Login, Dashboard, Documents, DocumentView, Classification,
+    pages/             → Landing, Login, Dashboard, Documents, DocumentView, Classification,
                           SemanticSearch, ChatPage, CostSavingAgentPage, AnomaliesPage,
-                          DuplicatesPage, AdminUsers (11 pages)
-    components/        → Layout, Card, AgentStepTimeline, RecommendationCard, ForecastChart,
-                          BackendWakingBanner, ConfirmDialog, ErrorBoundary, InlineError,
-                          Markdown, NotFound, Skeleton, TableScroll, ToastContainer
+                          DuplicatesPage, AdminUsers (12 pages)
+    components/        → Layout, PublicHeader, Card, AgentStepTimeline, RecommendationCard,
+                          ForecastChart, BackendWakingBanner, ConfirmDialog, ErrorBoundary,
+                          InlineError, Markdown, NotFound, Skeleton, TableScroll, ToastContainer
     hooks/             → useBackendWaking, useDocumentTitle
+    i18n/locales/      → {en,it}/*.json, one file per feature area (checked for key parity in CI)
     api.ts             → API client
   vercel.json          → Vercel deploy config
 ```
