@@ -10,17 +10,17 @@ import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
 import { useTheme } from "../context/ThemeContext";
 
 const NAV = [
-  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { to: "/documents", labelKey: "nav.documents", icon: FileText },
-  { to: "/classification", labelKey: "nav.classification", icon: Tags },
-  { to: "/search", labelKey: "nav.search", icon: Search },
-  { to: "/chat", labelKey: "nav.chat", icon: MessageSquare },
-  { to: "/cost-saving", labelKey: "nav.costSaving", icon: Bot },
-  { to: "/anomalies", labelKey: "nav.anomalies", icon: AlertTriangle },
-  { to: "/duplicates", labelKey: "nav.duplicates", icon: Link2 },
+  { to: "/app", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { to: "/app/documents", labelKey: "nav.documents", icon: FileText },
+  { to: "/app/classification", labelKey: "nav.classification", icon: Tags },
+  { to: "/app/search", labelKey: "nav.search", icon: Search },
+  { to: "/app/chat", labelKey: "nav.chat", icon: MessageSquare },
+  { to: "/app/cost-saving", labelKey: "nav.costSaving", icon: Bot },
+  { to: "/app/anomalies", labelKey: "nav.anomalies", icon: AlertTriangle },
+  { to: "/app/duplicates", labelKey: "nav.duplicates", icon: Link2 },
 ];
 
-const ADMIN_NAV = { to: "/admin", labelKey: "nav.admin", icon: ShieldCheck };
+const ADMIN_NAV = { to: "/app/admin", labelKey: "nav.admin", icon: ShieldCheck };
 
 export default function Layout({ children, user, onLogout }: { children: React.ReactNode; user: User; onLogout: () => void }) {
   const { t, i18n } = useTranslation("common");
@@ -102,7 +102,7 @@ export default function Layout({ children, user, onLogout }: { children: React.R
             <X size={18} aria-hidden="true" />
           </button>
           {nav.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.to === "/"}
+            <NavLink key={n.to} to={n.to} end={n.to === "/app"}
               className={({ isActive }) =>
                 `flex items-center gap-2 rounded-full px-3 py-2 text-sm transition-colors ${isActive ? "bg-teal text-surface font-semibold" : "text-muted hover:text-parchment hover:bg-panel-2"}`
               }>

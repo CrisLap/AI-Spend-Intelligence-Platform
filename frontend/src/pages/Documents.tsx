@@ -262,7 +262,7 @@ export default function Documents() {
               </tr></thead>
               <tbody>
                 {list.map((d) => (
-                  <tr key={d.id} className="border-b border-border/60 hover:bg-panel-2/50 cursor-pointer" onClick={() => navigate(`/documents/${d.id}`)}>
+                  <tr key={d.id} className="border-b border-border/60 hover:bg-panel-2/50 cursor-pointer" onClick={() => navigate(`/app/documents/${d.id}`)}>
                     <td className="p-3">{d.original_name}</td>
                     <td className="p-3 text-muted">{d.doc_type}</td>
                     <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded-full ${d.status === "classified" ? "bg-ok/10 text-ok" : d.status === "failed" ? "bg-danger/10 text-danger" : "bg-amber/10 text-amber"}`}>{d.status}</span></td>

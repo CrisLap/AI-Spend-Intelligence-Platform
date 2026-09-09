@@ -14,6 +14,7 @@ import enDocumentView from "./locales/en/documentView.json";
 import enDocuments from "./locales/en/documents.json";
 import enDuplicates from "./locales/en/duplicates.json";
 import enErrors from "./locales/en/errors.json";
+import enLanding from "./locales/en/landing.json";
 import enLogin from "./locales/en/login.json";
 import enSearch from "./locales/en/search.json";
 
@@ -29,6 +30,7 @@ import itDocumentView from "./locales/it/documentView.json";
 import itDocuments from "./locales/it/documents.json";
 import itDuplicates from "./locales/it/duplicates.json";
 import itErrors from "./locales/it/errors.json";
+import itLanding from "./locales/it/landing.json";
 import itLogin from "./locales/it/login.json";
 import itSearch from "./locales/it/search.json";
 
@@ -38,6 +40,7 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 const resources = {
   en: {
     common: enCommon,
+    landing: enLanding,
     login: enLogin,
     dashboard: enDashboard,
     documents: enDocuments,
@@ -54,6 +57,7 @@ const resources = {
   },
   it: {
     common: itCommon,
+    landing: itLanding,
     login: itLogin,
     dashboard: itDashboard,
     documents: itDocuments,

@@ -169,7 +169,7 @@ export default function ChatPage() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => navigate("/cost-saving", { state: { agentType: m.suggestion!.agent_type, goal: m.suggestion!.goal } })}
+                      onClick={() => navigate("/app/cost-saving", { state: { agentType: m.suggestion!.agent_type, goal: m.suggestion!.goal } })}
                       className="mt-2 rounded-full bg-teal px-3 py-1 text-xs font-semibold text-surface"
                     >
                       {t("handoff.openButton")}
@@ -211,7 +211,7 @@ export default function ChatPage() {
                       s.document_id != null ? (
                         <button
                           key={j}
-                          onClick={() => navigate(`/documents/${s.document_id}`)}
+                          onClick={() => navigate(`/app/documents/${s.document_id}`)}
                           className="w-fit text-left hover:text-teal hover:underline"
                         >
                           📄 {s.source} (score {s.score})

@@ -87,7 +87,7 @@ export default function DocumentView() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate("/documents")} className="text-xs text-muted hover:text-parchment">{t("back")}</button>
+        <button onClick={() => navigate("/app/documents")} className="text-xs text-muted hover:text-parchment">{t("back")}</button>
         <h1 className="text-page-title font-bold">{doc.original_name}</h1>
         <span className={`text-xs px-2 py-0.5 rounded-full ${doc.status === "classified" ? "bg-ok/10 text-ok" : "bg-amber/10 text-amber"}`}>{doc.status}</span>
       </div>

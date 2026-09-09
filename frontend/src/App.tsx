@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getToken, setToken, setUnauthorizedHandler, auth } from "./api";
 import Layout from "./components/Layout";
 import BackendWakingBanner from "./components/BackendWakingBanner";
 import ToastContainer from "./components/ToastContainer";
 import ErrorBoundary from "./components/ErrorBoundary";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Documents from "./pages/Documents";
 import DocumentView from "./pages/DocumentView";
@@ -60,22 +61,28 @@ export default function App() {
       {loading ? (
         <div className="flex h-screen items-center justify-center text-muted">{t("loading")}</div>
       ) : !user ? (
-        <Login onLogin={(u) => { setUser(u); navigate("/"); }} />
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login onLogin={(u) => { setUser(u); navigate("/app"); }} />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
       ) : (
         <Layout user={user} onLogout={() => { setToken(null); setUser(null); navigate("/login"); }}>
           <ErrorBoundary key={location.pathname}>
             <Suspense fallback={<div className="flex h-full items-center justify-center text-muted">{t("loading")}</div>}>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/documents" element={<Documents />} />
-                <Route path="/documents/:id" element={<DocumentView />} />
-                <Route path="/classification" element={<Classification />} />
-                <Route path="/search" element={<SemanticSearch />} />
-                <Route path="/chat" element={<ChatPage />} />
-                <Route path="/cost-saving" element={<CostSavingAgentPage />} />
-                <Route path="/anomalies" element={<AnomaliesPage />} />
-                <Route path="/duplicates" element={<DuplicatesPage />} />
-                {user.role === "admin" && <Route path="/admin" element={<AdminUsers />} />}
+                <Route path="/" element={<Navigate to="/app" replace />} />
+                <Route path="/login" element={<Navigate to="/app" replace />} />
+                <Route path="/app" element={<Dashboard />} />
+                <Route path="/app/documents" element={<Documents />} />
+                <Route path="/app/documents/:id" element={<DocumentView />} />
+                <Route path="/app/classification" element={<Classification />} />
+                <Route path="/app/search" element={<SemanticSearch />} />
+                <Route path="/app/chat" element={<ChatPage />} />
+                <Route path="/app/cost-saving" element={<CostSavingAgentPage />} />
+                <Route path="/app/anomalies" element={<AnomaliesPage />} />
+                <Route path="/app/duplicates" element={<DuplicatesPage />} />
+                {user.role === "admin" && <Route path="/app/admin" element={<AdminUsers />} />}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
