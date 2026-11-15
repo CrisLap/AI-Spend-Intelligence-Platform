@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { documents, classification, feedback } from "../api";
 import { useToast } from "../context/ToastContext";
 import { SkeletonTable } from "../components/Skeleton";
@@ -94,7 +95,7 @@ export default function DocumentView() {
       <Card padding="none" className="overflow-hidden">
         <TableScroll>
         <table className="w-full text-sm">
-          <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
+          <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted">
             <th className="p-3">{t("table.description")}</th><th className="p-3">{t("table.qty")}</th><th className="p-3">{t("table.price")}</th><th className="p-3">{t("table.total")}</th><th className="p-3">{t("table.supplier")}</th><th className="p-3">{t("table.category")}</th><th className="p-3">{t("table.unspsc")}</th><th className="p-3">{t("table.confidence")}</th><th className="p-3">{t("table.anomaly")}</th><th className="p-3"></th>
           </tr></thead>
           <tbody>
@@ -131,8 +132,14 @@ export default function DocumentView() {
                   <td className="p-3 text-xs text-muted">{item.confidence ? `${(item.confidence * 100).toFixed(0)}%` : "-"}</td>
                   <td className="p-3">
                     {item.is_anomaly ? (
-                      <span className="text-xs bg-danger/10 text-danger px-2 py-0.5 rounded-full" title={item.anomaly_reason || ""}>{t("anomalyBadge")}</span>
-                    ) : <span className="text-xs text-ok">{t("okBadge")}</span>}
+                      <span className="flex items-center gap-1 text-xs bg-danger/10 text-danger px-2 py-0.5 rounded-full" title={item.anomaly_reason || ""}>
+                        <AlertTriangle size={12} aria-hidden="true" /> {t("anomalyBadge")}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-ok">
+                        <CheckCircle2 size={12} aria-hidden="true" /> {t("okBadge")}
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 text-right whitespace-nowrap">
                     {feedbackSentId === item.id ? (

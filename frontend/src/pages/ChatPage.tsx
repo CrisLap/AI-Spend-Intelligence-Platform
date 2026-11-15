@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { Bot, Check, Copy, Plus, RotateCcw, Trash2, User as UserIcon } from "lucide-react";
+import { Bot, Check, Copy, FileText, Plus, RotateCcw, Trash2, User as UserIcon } from "lucide-react";
 import { assistant, chat } from "../api";
 import { getErrorMessage } from "../lib/errorMessage";
 import AgentStepTimeline, { type AgentStep } from "../components/AgentStepTimeline";
@@ -212,12 +212,14 @@ export default function ChatPage() {
                         <button
                           key={j}
                           onClick={() => navigate(`/app/documents/${s.document_id}`)}
-                          className="w-fit text-left hover:text-teal hover:underline"
+                          className="w-fit flex items-center gap-1 text-left hover:text-teal hover:underline"
                         >
-                          📄 {s.source} (score {s.score})
+                          <FileText size={12} aria-hidden="true" /> {s.source} (score {s.score})
                         </button>
                       ) : (
-                        <span key={j}>📄 {s.source} (score {s.score})</span>
+                        <span key={j} className="flex items-center gap-1">
+                          <FileText size={12} aria-hidden="true" /> {s.source} (score {s.score})
+                        </span>
                       )
                     )}
                   </div>
@@ -265,7 +267,7 @@ export default function ChatPage() {
           {sessions.length === 0 && <p className="text-xs text-muted">{t("history.empty")}</p>}
           {groupedSessions.map((group) => (
             <div key={group.label}>
-              <p className="text-[10px] uppercase tracking-wide text-muted mb-1">{group.label}</p>
+              <p className="text-[10px] text-muted mb-1">{group.label}</p>
               <div className="flex flex-col gap-1">
                 {group.items.map((s) => (
                   <div

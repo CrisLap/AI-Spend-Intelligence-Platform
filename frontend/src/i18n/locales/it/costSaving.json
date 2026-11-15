@@ -37,8 +37,8 @@
     "thought": "Pensiero:",
     "action": "Azione:",
     "mode": {
-      "structured": "chiamata tool",
-      "text_parsed": "testo ReAct"
+      "structured": "Chiamata tool",
+      "text_parsed": "Testo ReAct"
     }
   },
   "card": {

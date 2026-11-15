@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle, Bot, FileText, LayoutDashboard, Link2, Menu, MessageSquare,
-  Moon, Search, ShieldCheck, Sparkles, Sun, Tags, X,
+  Moon, Search, ShieldCheck, Sun, Tags, X,
 } from "lucide-react";
 import { type User } from "../App";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
@@ -43,12 +43,7 @@ export default function Layout({ children, user, onLogout }: { children: React.R
           <button onClick={() => setSidebarOpen(true)} aria-label={t("openMenu")} className="md:hidden text-parchment">
             <Menu size={20} aria-hidden="true" />
           </button>
-          <span className="flex items-center gap-2 text-sm font-bold tracking-wider text-teal uppercase">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal/15 text-teal">
-              <Sparkles size={16} aria-hidden="true" />
-            </span>
-            {t("appName")}
-          </span>
+          <span className="text-sm font-semibold text-teal">{t("appName")}</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-1">

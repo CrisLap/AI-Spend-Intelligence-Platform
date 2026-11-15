@@ -106,7 +106,7 @@ export default function AdminUsers() {
         <Card padding="none" className="overflow-hidden">
           <TableScroll>
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
+            <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted">
               <th className="p-3">{t("table.email")}</th><th className="p-3">{t("table.name")}</th><th className="p-3">{t("table.role")}</th><th className="p-3">{t("table.created")}</th><th className="p-3"></th>
             </tr></thead>
             <tbody>

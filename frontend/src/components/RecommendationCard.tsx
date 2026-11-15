@@ -28,7 +28,7 @@ export default function RecommendationCard({ rec }: { rec: Recommendation }) {
     <div className="flex flex-col gap-2 rounded border border-border bg-panel p-4">
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-semibold text-parchment">{rec.title}</h3>
-        <span className={`shrink-0 text-xs uppercase tracking-wide ${CONFIDENCE_STYLE[rec.confidence] ?? "text-muted"}`}>
+        <span className={`shrink-0 text-xs capitalize ${CONFIDENCE_STYLE[rec.confidence] ?? "text-muted"}`}>
           {rec.confidence}
         </span>
       </div>

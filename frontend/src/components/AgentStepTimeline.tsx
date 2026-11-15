@@ -57,7 +57,7 @@ export default function AgentStepTimeline({ steps, animate = true }: { steps: Ag
               <span className="text-muted">{t("timeline.action")}</span> {s.tool}
               {s.tool_input ? `("${s.tool_input}")` : ""}
               {s.mode && (
-                <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted">
                   {t(`timeline.mode.${s.mode}`, { defaultValue: s.mode })}
                 </span>
               )}

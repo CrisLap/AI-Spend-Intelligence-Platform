@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const GITHUB_URL = "https://github.com/CrisLap/AI-Spend-Intelligence-Platform";
@@ -18,10 +17,7 @@ export default function PublicHeader() {
   const { t } = useTranslation(["landing", "common"]);
   return (
     <header className="flex items-center justify-between max-w-6xl mx-auto w-full px-6 py-4">
-      <Link to="/" className="flex items-center gap-2 text-sm font-bold tracking-wider text-teal uppercase">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal/15 text-teal">
-          <Sparkles size={16} aria-hidden="true" />
-        </span>
+      <Link to="/" className="text-sm font-semibold text-teal">
         {t("common:appName")}
       </Link>
       <nav className="flex items-center gap-4">

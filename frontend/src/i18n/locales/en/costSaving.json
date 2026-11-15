@@ -37,7 +37,7 @@
     "thought": "Thought:",
     "action": "Action:",
     "mode": {
-      "structured": "tool call",
+      "structured": "Tool call",
       "text_parsed": "ReAct text"
     }
   },

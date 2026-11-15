@@ -150,7 +150,7 @@ export default function Documents() {
           type="button"
           onClick={() => toggleSort(column)}
           aria-label={t("documents:sortAria", { column: t(labelKey) })}
-          className={`flex items-center gap-1 uppercase tracking-wide ${active ? "text-teal" : ""}`}
+          className={`flex items-center gap-1 ${active ? "text-teal" : ""}`}
         >
           {t(labelKey)}
           {active && (sortDir === "asc" ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />)}
@@ -253,7 +253,7 @@ export default function Documents() {
         <Card padding="none" className="overflow-hidden">
           <TableScroll>
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
+              <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted">
                 <SortHeader column="name" labelKey="documents:table.name" />
                 <th className="p-3">{t("documents:table.type")}</th>
                 <SortHeader column="status" labelKey="documents:table.status" />

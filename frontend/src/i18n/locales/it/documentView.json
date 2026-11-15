@@ -12,8 +12,8 @@
     "anomaly": "Anomalia"
   },
   "save": "Salva",
-  "anomalyBadge": "⚠ Anomalia",
-  "okBadge": "✓ OK",
+  "anomalyBadge": "Anomalia",
+  "okBadge": "OK",
   "feedbackSent": "Feedback inviato",
   "notCorrect": "Non corretto?",
   "feedbackPlaceholder": "Cosa non va in questa classificazione?",

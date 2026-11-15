@@ -44,7 +44,7 @@ export default function Classification() {
         <Card padding="none" className="overflow-hidden">
           <TableScroll>
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted uppercase tracking-wide">
+              <thead><tr className="border-b border-border bg-panel-2 text-left text-xs text-muted">
                 <th className="p-3">{t("table.description")}</th><th className="p-3">{t("table.category")}</th><th className="p-3">{t("table.unspsc")}</th><th className="p-3">{t("table.confidence")}</th><th className="p-3">{t("table.method")}</th>
               </tr></thead>
               <tbody>

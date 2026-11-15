@@ -88,7 +88,7 @@ export default function Dashboard() {
           { label: t("kpi.duplicates"), value: data.duplicate_count, color: data.duplicate_count > 0 ? "text-amber" : "text-ok", to: "/duplicates" },
         ].map((k) => (
           <Link key={k.label} to={k.to} className="rounded-2xl border border-border bg-panel backdrop-blur-md p-4 transition-colors hover:border-teal">
-            <p className="text-xs text-muted uppercase tracking-wide">{k.label}</p>
+            <p className="text-xs text-muted">{k.label}</p>
             <p className={`text-metric font-bold mt-1 ${k.color}`}>{typeof k.value === "number" ? k.value.toLocaleString() : k.value}</p>
           </Link>
         ))}

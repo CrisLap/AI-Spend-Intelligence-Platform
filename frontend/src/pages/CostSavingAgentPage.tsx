@@ -244,7 +244,7 @@ export default function CostSavingAgentPage() {
                 className="flex items-center justify-between border-b border-border/60 py-1.5 text-left text-sm hover:text-teal"
               >
                 <span className="flex items-center gap-2">
-                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted">
                     {AGENT_TYPES[h.agent_type]?.label ?? h.agent_type}
                   </span>
                   {h.goal}
