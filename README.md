@@ -160,6 +160,33 @@ above), the buyer and finance logins each see only their own seeded set
 today - registering a second buyer/finance account would immediately see
 the existing one's data too, without needing to reseed anything.
 
+### MCP Server
+
+An [MCP](https://modelcontextprotocol.io) server (`app/mcp/server.py`,
+using the official `mcp` Python SDK) exposes three read-only tools -
+`search_spend`, `list_anomalies`, `list_duplicates` - plus a
+`metrics://semantic-model` resource describing every metric this platform
+computes (name, definition, calculation rule - `app/mcp/metrics.yaml`),
+so an MCP client can look up what a number means before trusting it.
+Every tool call is scoped to the caller's visible spend data exactly the
+way every other entry point in this app is (`get_visible_user_ids()` -
+see Design Notes below): the server authenticates with a real JWT, not a
+separate credential.
+
+```bash
+cd backend
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"..."}' | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+MCP_AUTH_TOKEN=$TOKEN python scripts/run_mcp_server.py
+```
+
+Point an MCP client (e.g. Claude Desktop's `claude_desktop_config.json`)
+at it with a `command`/`args`/`env` block carrying `DATABASE_URL` and
+`MCP_AUTH_TOKEN`. The server refuses to start if `MCP_AUTH_TOKEN` is
+missing/invalid - a one-time local bootstrap failure, not a request path
+that needs to degrade gracefully like the Ollama/Groq/Jina calls do.
+
 ### Production Deploy (zero-cost stack)
 
 The default `render.yaml` no longer self-hosts Qdrant/Ollama as Render
@@ -288,6 +315,7 @@ in `.env.example`.
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Allowed CORS origins — **the app refuses to start with a localhost-only value when `ENVIRONMENT=production`** |
 | `ANOMALY_ZSCORE_THRESHOLD` | `2.5` | Z-score anomaly threshold |
 | `DUPLICATE_SIMILARITY_THRESHOLD` | `0.88` | Similarity threshold for dupes |
+| `MCP_AUTH_TOKEN` | _(unset)_ | Not an app setting - read directly by `scripts/run_mcp_server.py` from the process environment. A JWT obtained via `POST /auth/login`; the MCP server refuses to start without one |
 
 ## Testing
 
@@ -299,7 +327,7 @@ cd frontend
 npm test
 ```
 
-Backend: 166 pytest tests across 29 files (`backend/tests/`). Frontend:
+Backend: 169 pytest tests across 30 files (`backend/tests/`). Frontend:
 Vitest + React Testing Library, covering `AgentStepTimeline` and
 `RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
 
@@ -312,11 +340,37 @@ python scripts/evaluate_rag.py
 
 Measures retrieval precision, answer relevance, and faithfulness against a curated test set.
 
+## Agent Answer Evaluation
+
+```bash
+cd backend
+python evals/run_eval.py --report eval-report.md --json eval-report.json
+```
+
+24 questions (`evals/questions.yaml`) asked against the real chat ReAct
+agent or the Cost Saving/Forecast/Contract Risk agent, each checked
+against a ground truth computed independently of any LLM - a literal SQL
+query, the exact deterministic function the app itself uses (e.g.
+`get_supplier_variance`), or a known fact about the fixture dataset - not
+a re-derivation of the agent's own output. This is the "does the number
+match the official report" check (`evals/run_eval.py`'s module docstring
+explains the three ground-truth sources and the comparison heuristics in
+full); `scripts/evaluate_rag.py` above measures retrieval/relevance
+*quality* instead, via embedding similarity, not correctness against a
+known answer.
+
+The suite builds its own small, isolated SQLite dataset (`evals/fixtures.py`)
+rather than depending on a real Postgres/Qdrant/LLM provider being
+configured, so it runs the same way locally and in CI. If no LLM provider
+is reachable (no `GROQ_API_KEY`, no local Ollama), the run is marked
+"degraded" in its report instead of failing the build on pass rate alone,
+since that reflects missing infrastructure, not an agent regression.
+
 ## GitHub Actions
 
 | Workflow | Trigger | Jobs |
 |----------|---------|------|
-| `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), backend dependency audit (pip-audit, non-blocking), frontend lint (tsc typecheck + i18n key-parity check + `npm audit --audit-level=high`), frontend build (vite), frontend tests (vitest) |
+| `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), backend dependency audit (pip-audit, non-blocking), backend agent answer evaluation (non-blocking, publishes a report artifact), frontend lint (tsc typecheck + i18n key-parity check + `npm audit --audit-level=high`), frontend build (vite), frontend tests (vitest) |
 | `cd.yml` | Push to `main` | Build Docker image → push to GHCR → deploy to Render |
 | `keepalive.yml` | Schedule (every 10 min) + manual dispatch | Ping `/health` on the deployed Render API to keep the free-tier service warm |
 
@@ -352,8 +406,12 @@ backend/
       guardrails.py          → Input validation & output sanitization
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
-  scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py)
-  tests/               → 166 pytest tests (29 files)
+    mcp/
+      server.py              → MCP server (search_spend, list_anomalies, list_duplicates tools + metrics://semantic-model resource)
+      metrics.yaml           → Semantic model: name, definition, calculation rule for every metric this platform computes
+  evals/               → Agent Answer Evaluation suite: questions.yaml (ground-truth questions), fixtures.py (isolated dataset), run_eval.py
+  scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py), MCP server entry point (run_mcp_server.py)
+  tests/               → 169 pytest tests (30 files)
   Dockerfile
 frontend/
   src/
@@ -379,7 +437,7 @@ This is a working, deployed system — not a mockup — but it runs on a free-ti
 - **LLM path**: Ollama (local) is the primary inference path; Groq is a free-tier cloud fallback used automatically when Ollama is unreachable (e.g., in this hosted demo, where there's no local Ollama instance running).
 - **Demo data**: the seeded demo data (documents, transactions, contracts) is synthetic, generated by `scripts/seed_demo_data.py` for demonstration purposes — not real spend data.
 
-None of this affects the architecture or the test suite (166 tests, CI green on every push) — it reflects the hosting tier, not the code.
+None of this affects the architecture or the test suite (169 tests, CI green on every push) — it reflects the hosting tier, not the code.
 
 
 

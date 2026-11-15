@@ -57,6 +57,30 @@ jobs:
       - run: pip-audit -r requirements.txt
         continue-on-error: true
 
+  backend-eval:
+    name: Backend Agent Answer Evaluation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: "pip"
+      - run: pip install -r requirements-dev.txt
+      - run: python evals/run_eval.py --report ../eval-report.md --json ../eval-report.json
+        continue-on-error: true
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: |
+            eval-report.md
+            eval-report.json
+
   frontend-lint:
     name: Frontend Lint
     runs-on: ubuntu-latest

@@ -3,11 +3,17 @@ from __future__ import annotations
 import statistics
 from collections import defaultdict
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.document import LineItem
+from app.models.document import Document, LineItem
 from app.services.i18n_strings import translate as _t
+
+_SORT_COLUMNS = {
+    "zscore": LineItem.anomaly_score,
+    "price": LineItem.unit_price,
+}
 
 # These reasons are computed once, when a document is processed
 # (app/api/documents.py::process_document), and stored on LineItem -
@@ -227,3 +233,50 @@ def detect_anomalies(items: list[LineItem], db: Session | None = None, lang: str
         r["reason"] = "; ".join(r["anomalies"]) if r["anomalies"] else _t(_STRINGS, lang, "within_normal_range")
 
     return results
+
+
+def list_anomalies_for(
+    db: Session,
+    scope: int | list[int] | None,
+    skip: int = 0,
+    limit: int = 50,
+    search: str | None = None,
+    sort_by: str = "zscore",
+    sort_dir: str = "desc",
+    include_resolved: bool = False,
+) -> list[dict]:
+    """Query already-flagged anomalies (LineItem.is_anomaly, set once at
+    document-processing time) restricted to `scope` (see
+    core/deps.py::get_visible_user_ids - None means no filter/admin).
+    Shared by GET /anomalies (api/anomalies.py) and the MCP list_anomalies
+    tool so the visibility filter lives in exactly one place."""
+    query = db.query(LineItem).join(Document).filter(LineItem.is_anomaly == True)  # noqa: E712
+    if scope is not None:
+        ids = [scope] if isinstance(scope, int) else scope
+        query = query.filter(Document.user_id.in_(ids))
+    if not include_resolved:
+        query = query.filter(LineItem.anomaly_resolved == False)  # noqa: E712
+    if search:
+        like = f"%{search}%"
+        query = query.filter(or_(
+            LineItem.description.ilike(like),
+            LineItem.supplier.ilike(like),
+            LineItem.category_label.ilike(like),
+        ))
+    column = _SORT_COLUMNS[sort_by]
+    order = column.asc() if sort_dir == "asc" else column.desc()
+    items = query.order_by(order).offset(skip).limit(limit).all()
+    return [
+        {
+            "id": i.id,
+            "description": i.description,
+            "unit_price": i.unit_price,
+            "category": i.category_label,
+            "supplier": i.supplier,
+            "zscore": i.anomaly_score,
+            "reason": i.anomaly_reason,
+            "document_id": i.document_id,
+            "resolved": i.anomaly_resolved,
+        }
+        for i in items
+    ]

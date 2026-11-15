@@ -1,0 +1,87 @@
+# Semantic model for the AI Spend Intelligence Platform.
+#
+# One entry per metric actually computed by the backend - name, plain-
+# language definition, the exact calculation rule, and the function that
+# implements it (kept in sync with the code: if the formula changes, this
+# file changes in the same commit). Exposed over MCP as the
+# `metrics://semantic-model` resource so a client can look up what a number
+# means before trusting it.
+metrics:
+  - name: total_spend
+    definition: >
+      Total spend across every line item within the caller's visible scope
+      (their own role's shared pool, or everything for admin).
+    calculation: >
+      SUM(line_items.total) over LineItem JOIN Document, filtered by
+      Document.user_id IN (visible scope).
+    source: app.services.analytics.get_dashboard
+    unit: currency
+
+  - name: top_suppliers
+    definition: >
+      The suppliers with the highest total spend, descending.
+    calculation: >
+      SUM(line_items.total) GROUP BY supplier, ORDER BY total DESC LIMIT 10.
+    source: app.services.analytics.get_dashboard
+    unit: currency
+
+  - name: top_expenses
+    definition: >
+      The single line items with the highest total - a real ranking over
+      every record, not a semantic-search result.
+    calculation: "ORDER BY line_items.total DESC LIMIT n"
+    source: app.services.agents.tools.top_expenses_tool_for
+    unit: currency
+
+  - name: supplier_variance_pct
+    definition: >
+      Percent change in a supplier's spend between the older and newer half
+      of their historical line items (excludes contract documents, whose
+      line item is a one-time face value rather than a recurring charge).
+    calculation: >
+      Split each supplier's non-contract line items (ordered by
+      created_at) in half; variance_pct = (recent_total - previous_total) /
+      previous_total * 100. Requires at least 4 line items for that
+      supplier; skipped if previous_total <= 0.
+    source: app.services.analytics.get_supplier_variance
+    unit: percent
+
+  - name: anomaly_zscore
+    definition: >
+      How many standard deviations a line item's unit price or quantity is
+      from the mean of its category.
+    calculation: >
+      z = (value - category_mean) / category_stddev; flagged as an anomaly
+      if abs(z) >= anomaly_zscore_threshold (also flags a supplier not seen
+      before in that category, independent of the z-score).
+    source: app.services.anomalies.detect_anomalies
+    unit: stddev
+    threshold_setting: ANOMALY_ZSCORE_THRESHOLD
+
+  - name: duplicate_similarity
+    definition: >
+      How similar two line items are, for duplicate detection: either an
+      exact match (same supplier + invoice number + description + a close
+      amount) or a semantic match (cosine similarity between description
+      embeddings) with a close amount.
+    calculation: >
+      exact: supplier == supplier AND invoice_number == invoice_number AND
+      description == description AND amounts within 2% (min 0.01). semantic:
+      cosine_similarity(embedding_a, embedding_b) >= duplicate_similarity_threshold
+      AND amounts within 2%. A reported group's similarity is the weakest
+      link in the cluster, not an optimistic 1.0.
+    source: app.services.duplicates.find_duplicates
+    unit: cosine_similarity
+    threshold_setting: DUPLICATE_SIMILARITY_THRESHOLD
+
+  - name: forecast_next_month_spend
+    definition: >
+      Projected total spend for next month, extrapolated from real monthly
+      history (excludes contract documents, for the same reason as
+      supplier_variance_pct).
+    calculation: >
+      Ordinary least squares linear regression of monthly totals against
+      month index; forecast = intercept + slope * n, floored at 0. Requires
+      at least 3 months of history.
+    source: app.services.analytics.forecast_next_month_spend
+    unit: currency

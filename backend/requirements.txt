@@ -19,3 +19,5 @@ Pillow>=12.3.0,<13
 pytesseract>=0.3,<1
 scikit-learn>=1.5,<2
 qdrant-client>=1.11,<3
+mcp>=1.2,<2
+PyYAML>=6,<7

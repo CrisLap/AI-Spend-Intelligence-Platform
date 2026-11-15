@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -11,14 +10,10 @@ from app.core.deps import get_current_user, get_visible_user_ids
 from app.models.document import Document, LineItem
 from app.models.user import User
 from app.schemas.document import ResolvedUpdate
+from app.services.anomalies import list_anomalies_for
 from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/anomalies", tags=["anomalies"], dependencies=[Depends(get_current_user)])
-
-_SORT_COLUMNS = {
-    "zscore": LineItem.anomaly_score,
-    "price": LineItem.unit_price,
-}
 
 
 @router.get("")
@@ -33,37 +28,10 @@ def list_anomalies(
     user: User = Depends(get_current_user),
 ):
     scope = get_visible_user_ids(user, db)
-    query = db.query(LineItem).join(Document).filter(
-        LineItem.is_anomaly == True,  # noqa: E712
+    return list_anomalies_for(
+        db, scope, skip=skip, limit=limit, search=search,
+        sort_by=sort_by, sort_dir=sort_dir, include_resolved=include_resolved,
     )
-    if scope is not None:
-        query = query.filter(Document.user_id.in_(scope))
-    if not include_resolved:
-        query = query.filter(LineItem.anomaly_resolved == False)  # noqa: E712
-    if search:
-        like = f"%{search}%"
-        query = query.filter(or_(
-            LineItem.description.ilike(like),
-            LineItem.supplier.ilike(like),
-            LineItem.category_label.ilike(like),
-        ))
-    column = _SORT_COLUMNS[sort_by]
-    order = column.asc() if sort_dir == "asc" else column.desc()
-    items = query.order_by(order).offset(skip).limit(limit).all()
-    return [
-        {
-            "id": i.id,
-            "description": i.description,
-            "unit_price": i.unit_price,
-            "category": i.category_label,
-            "supplier": i.supplier,
-            "zscore": i.anomaly_score,
-            "reason": i.anomaly_reason,
-            "document_id": i.document_id,
-            "resolved": i.anomaly_resolved,
-        }
-        for i in items
-    ]
 
 
 @router.patch("/{line_item_id}/resolve")

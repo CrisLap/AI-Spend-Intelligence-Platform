@@ -4,8 +4,10 @@ import json
 import math
 
 import numpy as np
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
-from app.models.document import LineItem
+from app.models.document import Document, LineItem, LineItemGroup, LineItemGroupItem
 from app.services.ai import cosine_similarity, embed_text
 from app.services.i18n_strings import translate as _t
 
@@ -117,3 +119,86 @@ def find_duplicates(items: list[LineItem], threshold: float = 0.88, lang: str = 
                 } for k in cluster],
             })
     return groups
+
+
+def visible_group_ids(db: Session, scope: int | list[int] | None, search: str | None = None):
+    """Ids of duplicate groups (LineItemGroup) that contain at least one
+    line item within `scope` (see core/deps.py::get_visible_user_ids - None
+    means no filter/admin). Shared by GET /duplicates, PATCH
+    /duplicates/{id}/resolve and the MCP list_duplicates tool."""
+    q = (
+        db.query(LineItemGroupItem.group_id)
+        .join(LineItem, LineItemGroupItem.line_item_id == LineItem.id)
+        .join(Document, LineItem.document_id == Document.id)
+    )
+    if scope is not None:
+        ids = [scope] if isinstance(scope, int) else scope
+        q = q.filter(Document.user_id.in_(ids))
+    if search:
+        like = f"%{search}%"
+        q = q.filter(or_(LineItem.description.ilike(like), LineItem.supplier.ilike(like)))
+    return q.distinct()
+
+
+def list_duplicates_for(
+    db: Session,
+    scope: int | list[int] | None,
+    skip: int = 0,
+    limit: int = 50,
+    search: str | None = None,
+    include_resolved: bool = False,
+) -> list[dict]:
+    """Query already-grouped duplicate clusters restricted to `scope` -
+    shared by GET /duplicates (api/duplicates.py) and the MCP
+    list_duplicates tool so the visibility filter lives in exactly one
+    place. Two batched IN(...) queries for the whole page instead of one
+    query per group plus one per item in that group."""
+    own_group_ids = visible_group_ids(db, scope, search)
+    query = db.query(LineItemGroup).filter(LineItemGroup.id.in_(own_group_ids))
+    if not include_resolved:
+        query = query.filter(LineItemGroup.resolved == False)  # noqa: E712
+    groups = query.order_by(LineItemGroup.created_at.desc()).offset(skip).limit(limit).all()
+    group_ids = [g.id for g in groups]
+
+    links = (
+        db.query(LineItemGroupItem).filter(LineItemGroupItem.group_id.in_(group_ids)).all()
+        if group_ids else []
+    )
+    links_by_group: dict[int, list[int]] = {}
+    for link in links:
+        links_by_group.setdefault(link.group_id, []).append(link.line_item_id)
+
+    line_item_ids = [link.line_item_id for link in links]
+    items_by_id: dict[int, LineItem] = {}
+    if line_item_ids:
+        item_query = (
+            db.query(LineItem)
+            .join(Document, LineItem.document_id == Document.id)
+            .filter(LineItem.id.in_(line_item_ids))
+        )
+        if scope is not None:
+            ids = [scope] if isinstance(scope, int) else scope
+            item_query = item_query.filter(Document.user_id.in_(ids))
+        items_by_id = {item.id: item for item in item_query.all()}
+
+    result = []
+    for g in groups:
+        group_items = []
+        for line_item_id in links_by_group.get(g.id, []):
+            item = items_by_id.get(line_item_id)
+            if item:
+                group_items.append({
+                    "id": item.id,
+                    "description": item.description,
+                    "supplier": item.supplier,
+                    "total": item.total,
+                    "invoice_number": item.invoice_number,
+                })
+        result.append({
+            "id": g.id,
+            "reason": g.reason,
+            "similarity": g.similarity,
+            "items": group_items,
+            "resolved": g.resolved,
+        })
+    return result

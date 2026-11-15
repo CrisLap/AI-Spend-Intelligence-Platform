@@ -1,0 +1,262 @@
+# Agent-answer evaluation set - run_eval.py asks the real agent (chat
+# ReAct, or the Cost Saving/Forecast/Contract Risk agent) each `question`
+# and checks the reply against a ground truth computed independently of
+# any LLM, either:
+#   - expected_sql: a literal SQL query against the eval fixture's own
+#     SQLite schema (fixtures.py) - this is genuine "verity computed in
+#     SQL", not a re-derivation of the agent's own tool output. Dialect
+#     is SQLite (the eval harness's own isolated DB, not the production
+#     Postgres schema).
+#   - reference_fn: a dotted path to the exact deterministic function the
+#     app itself uses for that number (e.g. analytics.get_supplier_variance)
+#     - used only for the handful of metrics (variance %, forecast) that
+#       aren't a single SQL aggregate by definition; see metrics.yaml for
+#       why those two are defined this way.
+#   - expected_literal: a fact about the fixture dataset itself (e.g. "the
+#     contract text contains a renewal clause") that isn't meaningfully a
+#     query at all.
+# Every question passes :buyer_id as the SQL bind parameter / reference_fn
+# argument - see fixtures.py for the exact dataset these are computed over.
+#
+# compare:
+#   numeric       - extract a number from the agent's free-text reply,
+#                   compare to `expected` within tolerance_pct (relative)
+#                   or tolerance_abs (absolute - used instead when
+#                   `expected` is near zero, where a relative tolerance is
+#                   meaningless).
+#   contains      - the reply must contain `expected_literal`/the SQL or
+#                   reference_fn result's string form (case/accent
+#                   insensitive substring match).
+#   contains_any  - same, but passes if any of `expected_any` matches.
+#
+# Known limitation (found while testing this harness against the offline
+# fallback stub, which echoes the question back verbatim): for
+# forecast_trend_direction/contract_renewal_clause/contract_penalty_clause
+# below, the expected_any keyword is also a word in the Italian question
+# itself, so a degraded run's echoed-question reply trivially "passes".
+# Harmless for CI gating (a degraded run never fails the build on pass
+# rate - see run_eval.py), but worth knowing these three are weaker
+# signal than the numeric/SQL-grounded questions even on a real LLM run.
+
+questions:
+  - id: total_spend_all
+    question: "Qual è la spesa totale registrata finora?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id
+
+  - id: total_line_items_count
+    question: "Quante voci di spesa (line item) sono state registrate in totale?"
+    target: chat
+    compare: numeric
+    tolerance_abs: 0.5
+    expected_sql: >
+      SELECT COUNT(*) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id
+
+  - id: total_documents_count
+    question: "Quanti documenti sono stati caricati in totale?"
+    target: chat
+    compare: numeric
+    tolerance_abs: 0.5
+    expected_sql: "SELECT COUNT(*) FROM documents WHERE user_id = :buyer_id"
+
+  - id: contract_documents_count
+    question: "Quanti contratti sono stati caricati?"
+    target: chat
+    compare: numeric
+    tolerance_abs: 0.5
+    expected_sql: "SELECT COUNT(*) FROM documents WHERE user_id = :buyer_id AND doc_type = 'contract'"
+
+  - id: acme_total_spend
+    question: "Quanto abbiamo spesato in totale con il fornitore Acme Corp?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND li.supplier = 'Acme Corp'
+
+  - id: office_depot_total_spend
+    question: "Quanto abbiamo spesato in totale con Office Depot?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND li.supplier = 'Office Depot'
+
+  - id: global_logistics_total_spend
+    question: "Quanto abbiamo spesato in totale con Global Logistics?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND li.supplier = 'Global Logistics'
+
+  - id: cloudhost_total_spend
+    question: "Quanto abbiamo spesato in totale con CloudHost Inc?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND li.supplier = 'CloudHost Inc'
+
+  - id: hardware_category_total
+    question: "Quanto abbiamo spesato nella categoria Hardware?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND li.category_label = 'Hardware'
+
+  - id: january_month_total
+    question: "Quanto abbiamo spesato nel mese di gennaio 2025?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND strftime('%Y-%m', li.created_at) = '2025-01'
+
+  - id: february_month_total
+    question: "Quanto abbiamo spesato nel mese di febbraio 2025?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND strftime('%Y-%m', li.created_at) = '2025-02'
+
+  - id: march_month_total
+    question: "Quanto abbiamo spesato nel mese di marzo 2025?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND strftime('%Y-%m', li.created_at) = '2025-03'
+
+  - id: april_month_total
+    question: "Quanto abbiamo spesato nel mese di aprile 2025?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT SUM(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND strftime('%Y-%m', li.created_at) = '2025-04'
+
+  - id: top_expense_amount
+    question: "Qual è l'importo della singola voce di spesa più alta registrata?"
+    target: chat
+    compare: numeric
+    tolerance_pct: 2.0
+    expected_sql: >
+      SELECT MAX(li.total) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id
+
+  - id: top_expense_supplier
+    question: "Qual è il fornitore associato alla spesa più alta registrata?"
+    target: chat
+    compare: contains_any
+    expected_any: ["newvendor"]
+
+  - id: anomaly_count
+    question: "Quante anomalie di spesa sono state rilevate?"
+    target: chat
+    compare: numeric
+    tolerance_abs: 0.5
+    expected_sql: >
+      SELECT COUNT(*) FROM line_items li
+      JOIN documents d ON li.document_id = d.id
+      WHERE d.user_id = :buyer_id AND li.is_anomaly = 1
+
+  - id: top_variance_supplier_cost_saving
+    question: "Quale fornitore ha avuto il maggiore aumento di spesa recente?"
+    target: cost_saving
+    compare: contains_any
+    expected_any: ["acme"]
+
+  - id: acme_variance_pct
+    question: "Di quanto è variata percentualmente la spesa recente con Acme Corp rispetto al periodo precedente?"
+    target: cost_saving
+    compare: numeric
+    tolerance_pct: 15.0
+    reference_fn: app.services.analytics.get_supplier_variance
+    reference_key: supplier
+    reference_match: "Acme Corp"
+    reference_field: variance_pct
+
+  - id: office_depot_variance_pct
+    question: "Di quanto è variata percentualmente la spesa recente con Office Depot rispetto al periodo precedente?"
+    target: cost_saving
+    compare: numeric
+    tolerance_abs: 4.0
+    reference_fn: app.services.analytics.get_supplier_variance
+    reference_key: supplier
+    reference_match: "Office Depot"
+    reference_field: variance_pct
+
+  - id: cloudhost_variance_pct
+    question: "Di quanto è variata percentualmente la spesa recente con CloudHost Inc rispetto al periodo precedente?"
+    target: cost_saving
+    compare: numeric
+    tolerance_abs: 4.0
+    reference_fn: app.services.analytics.get_supplier_variance
+    reference_key: supplier
+    reference_match: "CloudHost Inc"
+    reference_field: variance_pct
+
+  - id: global_logistics_variance_pct
+    question: "Di quanto è variata percentualmente la spesa recente con Global Logistics rispetto al periodo precedente?"
+    target: cost_saving
+    compare: numeric
+    tolerance_abs: 4.0
+    reference_fn: app.services.analytics.get_supplier_variance
+    reference_key: supplier
+    reference_match: "Global Logistics"
+    reference_field: variance_pct
+
+  - id: forecast_next_month_amount
+    question: "Qual è la previsione di spesa per il prossimo mese?"
+    target: forecast
+    compare: numeric
+    tolerance_pct: 5.0
+    reference_fn: app.services.analytics.forecast_next_month_spend
+    reference_field: forecast_next_month
+
+  - id: forecast_trend_direction
+    question: "Il trend di spesa è in aumento o in calo?"
+    target: forecast
+    compare: contains_any
+    expected_any: ["aumento", "crescita", "crescente", "cresc", "increas"]
+
+  - id: contract_renewal_clause
+    question: "C'è un contratto con una clausola di rinnovo automatico da rivedere?"
+    target: contract_risk
+    compare: contains_any
+    expected_any: ["rinnovo", "renewal"]
+
+  - id: contract_penalty_clause
+    question: "C'è una penale di recesso anticipato in uno dei contratti?"
+    target: contract_risk
+    compare: contains_any
+    expected_any: ["penale", "penalty"]
