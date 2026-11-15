@@ -20,7 +20,14 @@ Ollama), every agent reply falls back to the deterministic offline stub
 (app/services/ai.py::_offline_fallback) and will fail nearly every
 question - the run is then marked "degraded" instead of a hard failure,
 since that outcome reflects missing infrastructure, not an agent
-regression.
+regression. The same applies if a free-tier provider (Groq) rate-limits
+the run partway through (HTTP 429) - a single up-front reachability check
+can't catch that, since it happens only after burning through the quota
+over the many ReAct calls this suite makes, so the actual run is also
+scanned afterwards for the offline stub's output (see _OFFLINE_PREFIX)
+and marked degraded retroactively if most replies ended up there. A
+small delay between questions (see _INTER_QUESTION_DELAY_SECONDS) also
+reduces how often this happens in the first place.
 """
 from __future__ import annotations
 
@@ -31,6 +38,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import unicodedata
 from pathlib import Path
 
@@ -53,13 +61,15 @@ os.environ.setdefault("OLLAMA_TIMEOUT", "2")  # fail fast if no local Ollama
 import yaml  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
-from app.core.config import settings  # noqa: E402
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.services import chat_service, cost_saving_agent  # noqa: E402
 from evals import fixtures  # noqa: E402
 
 _QUESTIONS_PATH = Path(__file__).parent / "questions.yaml"
 _NUMBER_RE = re.compile(r"-?\d[\d.,]*\d|\d")
+_OFFLINE_PREFIX = "[Offline]"  # ai.py::_offline_fallback's distinctive marker
+_OFFLINE_FRACTION_DEGRADED_THRESHOLD = 0.3
+_INTER_QUESTION_DELAY_SECONDS = 2.0  # stay under a free-tier provider's rate limit
 
 
 def _strip_accents(s: str) -> str:
@@ -190,13 +200,27 @@ def run(fail_under: float, report_path: str | None, json_path: str | None) -> in
         buyer_id = fixtures.seed(db)["buyer_id"]
         questions = yaml.safe_load(_QUESTIONS_PATH.read_text(encoding="utf-8"))["questions"]
         degraded = not _providers_available()
-        results = [_evaluate_one(q, db, buyer_id) for q in questions]
+        results = []
+        for i, q in enumerate(questions):
+            if i > 0:
+                time.sleep(_INTER_QUESTION_DELAY_SECONDS)
+            results.append(_evaluate_one(q, db, buyer_id))
     finally:
         db.close()
 
     total = len(results)
     passed = sum(1 for r in results if r["passed"])
     pass_rate = passed / total if total else 0.0
+
+    # A single up-front availability ping can succeed and then the run
+    # still burns through a free-tier provider's rate limit partway
+    # through (HTTP 429 - see ai.py's broad except around every Groq
+    # call), silently falling back to the offline stub for the rest of
+    # the run. Catch that after the fact by checking what actually came
+    # back, instead of trusting only the point-in-time check above.
+    offline_replies = sum(1 for r in results if (r.get("reply") or "").startswith(_OFFLINE_PREFIX))
+    if total and offline_replies / total >= _OFFLINE_FRACTION_DEGRADED_THRESHOLD:
+        degraded = True
 
     _print_console_summary(results, pass_rate, degraded)
     if report_path:

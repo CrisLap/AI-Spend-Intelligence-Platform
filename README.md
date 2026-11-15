@@ -98,6 +98,7 @@ A few implementation details that aren't obvious from the module table above:
 - **Guardrails apply everywhere an LLM sees free-text user input**, not just the Chat: `validate_input`/`sanitize_output` (`guardrails.py`) now guard the Cost Saving/Forecast/Contract Risk agents' `goal` too - a blocked goal skips the LLM call entirely, though the deterministic Recommendation Engine still runs (it depends on `agent_type` and real data, never on the goal text).
 - **Dashboard, Chat, and Cost Saving pages are lazily loaded.** `recharts` (Dashboard) and `react-markdown` (Chat, Cost Saving) accounted for most of a >500kB main-bundle warning at build time, so `App.tsx` code-splits those three routes with `React.lazy()` + a shared `Suspense` fallback instead of importing them eagerly with the rest of the app.
 - **Every user-facing string is localized (EN/IT), not just labels.** Frontend strings live in `frontend/src/i18n/locales/{en,it}/*.json`, one JSON file per feature area, read via `react-i18next`; `frontend/scripts/check-i18n-parity.mjs` enforces that both languages define the same keys and fails CI (`npm run check-i18n`, part of the `frontend-lint` job) if a new string is added to only one locale file. Backend-generated user-facing text (guardrail messages, anomaly/duplicate reasons, recommendation text) is localized the same way via `app/services/i18n_strings.py`, rendered once in the requester's language at generation time and stored fixed rather than re-rendered per viewer.
+- **Python is pinned to 3.12 everywhere (Dockerfile, CI), not auto-bumped.** `psycopg2-binary` was replaced with `psycopg[binary]` (psycopg 3) after a Dependabot-driven Docker base-image bump to `python:3.15-slim` revealed two compounding issues: the multi-stage Dockerfile's `COPY --from=base` step hardcodes the `site-packages` path per Python minor version (missed by that PR, since Dependabot only updates the `FROM` tag, not arbitrary path strings elsewhere in the file), and a newer SQLAlchemy 2.1.x resolves the bare `postgresql://` scheme to the `psycopg` v3 dialect by default - which wasn't installed, since the project only declared `psycopg2-binary`. Brand-new Python minor versions also routinely lack prebuilt wheels for this project's several C-extension dependencies (`numpy`, `pandas`, `scikit-learn`, `Pillow`, `psycopg`) for months after release. `.github/dependabot.yml`'s `docker` ecosystem entry now has an `ignore` rule blocking Dependabot from proposing a Python minor/major bump on its own (patch-level bumps, e.g. security fixes within 3.12.x, still flow through automatically) - a version bump here needs a human to check compiled-dependency wheel availability first, not an automatic merge.
 - **Spend data visibility is scoped by role, not by individual user.** `get_visible_user_ids()` (`app/core/deps.py`) resolves, per request, the set of user ids the caller may see: everyone sharing their role, or no filter at all for Admin. Every read/write touching documents, line items, the dashboard, search, duplicates, anomalies, and contract clauses goes through this - both on the PostgreSQL side (`user_id IN (...)`) and on the Qdrant side (a `MatchAny` filter on the same ids), so vector search results never drift out of sync with what the relational queries return. Admin is enforced as a singleton: promoting a second user to Admin (`PATCH /users/{id}/role`) automatically demotes the current one to Buyer in the same transaction, rather than allowing two Admins to exist. The classifier's feedback exemplars (`classifier.py::_FEEDBACK_EXEMPLARS`) are similarly scoped by `(role, category)` instead of being one global pool, so a Buyer's corrections don't bias Finance's classifications. Chat sessions and Cost Saving Agent run history are the deliberate exception - they stay private per individual user even though the spend data they analyze is shared.
 
 ## Quick Start
@@ -347,7 +348,7 @@ cd backend
 python evals/run_eval.py --report eval-report.md --json eval-report.json
 ```
 
-24 questions (`evals/questions.yaml`) asked against the real chat ReAct
+25 questions (`evals/questions.yaml`) asked against the real chat ReAct
 agent or the Cost Saving/Forecast/Contract Risk agent, each checked
 against a ground truth computed independently of any LLM - a literal SQL
 query, the exact deterministic function the app itself uses (e.g.
@@ -362,9 +363,15 @@ known answer.
 The suite builds its own small, isolated SQLite dataset (`evals/fixtures.py`)
 rather than depending on a real Postgres/Qdrant/LLM provider being
 configured, so it runs the same way locally and in CI. If no LLM provider
-is reachable (no `GROQ_API_KEY`, no local Ollama), the run is marked
-"degraded" in its report instead of failing the build on pass rate alone,
-since that reflects missing infrastructure, not an agent regression.
+is reachable at all (no `GROQ_API_KEY`, no local Ollama), the run is
+marked "degraded" in its report instead of failing the build on pass rate
+alone, since that reflects missing infrastructure, not an agent
+regression. A free-tier provider (Groq) can also start returning HTTP 429
+partway through the run once its rate limit is exhausted by the many
+ReAct calls this suite makes - a single up-front check can't catch that,
+so the run is additionally scanned afterwards for the offline fallback's
+output and marked degraded retroactively if most replies ended up there;
+a small delay between questions also reduces how often this happens.
 
 ## GitHub Actions
 
@@ -373,6 +380,16 @@ since that reflects missing infrastructure, not an agent regression.
 | `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), backend dependency audit (pip-audit, non-blocking), backend agent answer evaluation (non-blocking, publishes a report artifact), frontend lint (tsc typecheck + i18n key-parity check + `npm audit --audit-level=high`), frontend build (vite), frontend tests (vitest) |
 | `cd.yml` | Push to `main` | Build Docker image → push to GHCR → deploy to Render |
 | `keepalive.yml` | Schedule (every 10 min) + manual dispatch | Ping `/health` on the deployed Render API to keep the free-tier service warm |
+
+`main` should have a branch protection rule requiring `Backend Lint`,
+`Backend Tests`, `Frontend Lint`, `Frontend Build`, and `Frontend Tests`
+to pass before merging (Settings → Branches → Add rule). Without it, a
+PR - including an automated one from Dependabot - can be merged with a
+red CI, which is exactly how the Python-version incident described in
+Design Notes above reached `main` unnoticed. `Backend Dependency Audit`
+and `Backend Agent Answer Evaluation` are deliberately not required
+status checks - both run with `continue-on-error: true` by design (an
+audit finding or a degraded eval run isn't a reason to block a merge).
 
 ## Project Structure
 
