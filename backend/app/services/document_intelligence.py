@@ -178,6 +178,85 @@ def parse_items(text: str, doc_type: str | None = None) -> list[dict]:
     return []
 
 
+# Header aliases for structured (CSV/Excel) files, so an ERP export with its
+# own column names ("Vendor", "Qty", "PO Number") still maps onto the fields
+# the rest of the pipeline expects. Matching is on the normalized header
+# (lower-case, spaces/dashes -> underscores).
+TABULAR_ALIASES: dict[str, set[str]] = {
+    "description": {"description", "descrizione", "item", "item_description", "articolo"},
+    "quantity": {"quantity", "qty", "quantita", "quantità", "qta"},
+    "unit_price": {"unit_price", "unitprice", "price", "prezzo", "prezzo_unitario"},
+    "total": {"total", "totale", "amount", "importo", "line_total"},
+    "supplier": {"supplier", "vendor", "fornitore"},
+    "invoice_number": {"invoice_number", "invoice", "numero_fattura", "po_number", "order_number"},
+    "invoice_date": {"invoice_date", "date", "data", "order_date"},
+}
+# Column widths of LineItem (models/document.py)
+_TEXT_LIMITS = {"supplier": 300, "invoice_number": 100, "invoice_date": 20}
+
+
+def _cell_number(value) -> float | None:
+    if value is None or (isinstance(value, float) and value != value):  # NaN
+        return None
+    try:
+        return float(value) if isinstance(value, (int, float)) else _to_float(str(value))
+    except (ValueError, TypeError):
+        return None
+
+
+def _cell_text(value, limit: int) -> str | None:
+    if value is None or (isinstance(value, float) and value != value):
+        return None
+    text = str(value).strip()
+    return text[:limit] or None
+
+
+def parse_tabular_items(file_path: str, filename: str) -> list[dict] | None:
+    """Parses a structured CSV/Excel file straight into line-item dicts,
+    keeping the supplier / invoice number / date columns that the plain-text
+    regex path (parse_items) cannot see. Returns None - so the caller falls
+    back to parse_items - when the file isn't tabular or has no recognizable
+    description and amount columns."""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in (".csv", ".xlsx", ".xls"):
+        return None
+    try:
+        df = pd.read_csv(file_path) if ext == ".csv" else pd.read_excel(file_path)
+    except Exception:
+        return None
+
+    columns: dict[str, str] = {}
+    for col in df.columns:
+        key = re.sub(r"[\s-]+", "_", str(col).strip().lower())
+        for canonical, aliases in TABULAR_ALIASES.items():
+            if key in aliases and canonical not in columns:
+                columns[canonical] = col
+    if "description" not in columns or not ({"total", "unit_price"} & columns.keys()):
+        return None
+
+    items: list[dict] = []
+    for _, row in df.iterrows():
+        description = _cell_text(row[columns["description"]], 500)
+        if not description:
+            continue
+        quantity = _cell_number(row[columns["quantity"]]) if "quantity" in columns else None
+        quantity = quantity if quantity else 1.0
+        unit_price = _cell_number(row[columns["unit_price"]]) if "unit_price" in columns else None
+        total = _cell_number(row[columns["total"]]) if "total" in columns else None
+        if total is None and unit_price is not None:
+            total = round(quantity * unit_price, 2)
+        if total is None:
+            continue
+        if unit_price is None:
+            unit_price = round(total / quantity, 2)
+        item = {"description": description, "quantity": quantity, "unit_price": unit_price, "total": total}
+        for field, limit in _TEXT_LIMITS.items():
+            if field in columns:
+                item[field] = _cell_text(row[columns[field]], limit)
+        items.append(item)
+    return items or None
+
+
 _METADATA_RE = re.compile(
     r"(?:fattura\s*n\.?|invoice\s*(?:number|no\.?)|numero\s*fattura|"
     r"fattura|numero|n\.|invoice|no\.?|number)"

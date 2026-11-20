@@ -11,12 +11,15 @@ functions it wraps have no such dependency.
 """
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 
+import pytest
 import yaml
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.deps import get_visible_user_ids
 from app.models.user import User
 from app.services.anomalies import list_anomalies_for
@@ -111,3 +114,26 @@ def test_metrics_semantic_model_is_well_formed():
     for metric in metrics:
         missing = _REQUIRED_METRIC_FIELDS - metric.keys()
         assert not missing, f"metric {metric.get('name')} is missing fields: {missing}"
+
+
+def _metrics() -> list[dict]:
+    return yaml.safe_load(_METRICS_YAML_PATH.read_text(encoding="utf-8"))["metrics"]
+
+
+@pytest.mark.parametrize("metric", _metrics(), ids=lambda m: m["name"])
+def test_every_metric_source_resolves_to_a_real_callable(metric):
+    # The semantic model is documentation, so nothing else stops it drifting
+    # from the code: a renamed or removed function must fail this test.
+    module_path, _, attr = metric["source"].rpartition(".")
+    fn = getattr(importlib.import_module(module_path), attr, None)
+    assert callable(fn), f"metric {metric['name']}: source {metric['source']} does not resolve to a function"
+
+
+@pytest.mark.parametrize("metric", [m for m in _metrics() if "threshold_setting" in m], ids=lambda m: m["name"])
+def test_metric_threshold_settings_exist(metric):
+    assert hasattr(settings, metric["threshold_setting"].lower()), metric["threshold_setting"]
+
+
+def test_metrics_cover_the_mcp_ranking_tools():
+    names = {m["name"] for m in _metrics()}
+    assert {"top_expenses", "spend_by_supplier"} <= names

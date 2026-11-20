@@ -9,3 +9,34 @@ ignore = ["E501", "UP042", "UP047"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".."]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/mcp/*"]  # exercised through tests/test_mcp_*.py, but the entry points are thin wrappers
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+# Deliberately permissive baseline, meant to be tightened over time (ratchet):
+# the models use the legacy `declarative_base()` + `Column(...)` style, which
+# mypy types as `Column[int]` rather than `int`, so nearly every finding below
+# is that one pattern (141 at the time of writing). Those error codes are
+# disabled for now; migrating the models to `Mapped[...]` annotations lets
+# them be switched back on one at a time. Everything else (undefined names,
+# wrong attributes, bad calls) is still checked and must stay clean.
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+ignore_missing_imports = true
+disable_error_code = [
+    "arg-type",
+    "assignment",
+    "var-annotated",
+    "index",
+    "call-overload",
+    "misc",
+    "list-item",
+    "type-var",
+    "return-value",
+]

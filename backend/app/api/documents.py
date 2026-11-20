@@ -27,7 +27,13 @@ from app.services.anomalies import detect_anomalies
 from app.services.audit_service import log_action
 from app.services.classifier import classify_batch
 from app.services.contract_intelligence import index_contract
-from app.services.document_intelligence import extract_metadata, extract_raw_text, parse_items, save_upload
+from app.services.document_intelligence import (
+    extract_metadata,
+    extract_raw_text,
+    parse_items,
+    parse_tabular_items,
+    save_upload,
+)
 from app.services.duplicates import find_duplicates
 from app.services.vector_store import delete_contract_chunks, delete_line_items, upsert_line_item
 
@@ -192,7 +198,12 @@ def process_document(
             index_contract(doc, db)
 
         metadata = extract_metadata(raw_text)
-        parsed = parse_items(raw_text, doc.doc_type.value if doc.doc_type else None)
+        # Structured files keep their supplier/invoice columns; anything else
+        # (PDF/OCR text, or a CSV without recognizable columns) uses the
+        # text-based extraction.
+        parsed = parse_tabular_items(doc.file_path, doc.filename) or parse_items(
+            raw_text, doc.doc_type.value if doc.doc_type else None
+        )
 
         items = []
         for p in parsed:

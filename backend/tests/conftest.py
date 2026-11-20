@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core import login_throttle
 from app.core.config import settings
 from app.core.database import Base, get_db
 from app.core.rate_limit import limiter
@@ -66,6 +67,15 @@ def override_get_db():
 
 
 app.dependency_overrides[get_db] = override_get_db
+
+
+@pytest.fixture(autouse=True)
+def _reset_login_throttle():
+    # Failed-login state is process-global; without this a test that
+    # deliberately fails logins could lock an account for later tests.
+    login_throttle.reset()
+    yield
+    login_throttle.reset()
 
 
 @pytest.fixture

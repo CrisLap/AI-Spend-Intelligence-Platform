@@ -132,12 +132,15 @@ def search(vector: np.ndarray, top_k: int = 10, user_id: int | list[int] | None 
         return None
     try:
         query_filter = _user_id_filter(user_id)
-        hits = get_client().search(
+        # query_points, not the removed QdrantClient.search (gone in
+        # qdrant-client 1.16+); the broad except below would otherwise
+        # silently turn that AttributeError into the brute-force fallback.
+        hits = get_client().query_points(
             collection_name=settings.qdrant_collection,
-            query_vector=vector.tolist(),
+            query=vector.tolist(),
             query_filter=query_filter,
             limit=top_k,
-        )
+        ).points
         return [{"line_item_id": h.id, "score": round(h.score, 4), **(h.payload or {})} for h in hits]
     except Exception:
         logger.exception("Qdrant search failed, falling back to in-memory search")
@@ -183,12 +186,12 @@ def search_contracts(vector: np.ndarray, top_k: int = 5, user_id: int | list[int
         return None
     try:
         query_filter = _user_id_filter(user_id)
-        hits = get_client().search(
+        hits = get_client().query_points(
             collection_name=settings.qdrant_contract_collection,
-            query_vector=vector.tolist(),
+            query=vector.tolist(),
             query_filter=query_filter,
             limit=top_k,
-        )
+        ).points
         return [{"chunk_id": h.id, "score": round(h.score, 4), **(h.payload or {})} for h in hits]
     except Exception:
         logger.exception("Qdrant contract search failed, falling back to in-memory search")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -83,6 +84,66 @@ def get_dashboard(user_id: int | list[int] | None = None, db: Session | None = N
             "top_suppliers": top_suppliers,
             "top_categories": top_cats,
         }
+    finally:
+        if close_db:
+            db.close()
+
+
+def get_top_expenses(
+    user_id: int | list[int] | None = None, db: Session | None = None, limit: int = 5
+) -> list[dict]:
+    """The single line items with the highest total, descending - a real
+    ranking over every visible record (not a similarity search). Backs both
+    the agents' `top_expenses` tool and the MCP `top_expenses` tool, so the
+    two can't drift apart. `user_id` follows the usual scope convention."""
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+    try:
+        limit = max(1, min(limit, 50))
+        q = db.query(LineItem, Document.original_name).join(Document, LineItem.document_id == Document.id)
+        if user_id is not None:
+            ids = [user_id] if isinstance(user_id, int) else user_id
+            q = q.filter(Document.user_id.in_(ids))
+        rows = q.order_by(LineItem.total.desc()).limit(limit).all()
+        return [
+            {
+                "id": item.id,
+                "total": round(item.total or 0, 2),
+                "description": item.description,
+                "supplier": item.supplier,
+                "category": item.category_label,
+                "invoice_number": item.invoice_number,
+                "source": doc_name,
+            }
+            for item, doc_name in rows
+        ]
+    finally:
+        if close_db:
+            db.close()
+
+
+def get_spend_by_supplier(
+    user_id: int | list[int] | None = None, db: Session | None = None, limit: int = 20
+) -> list[dict]:
+    """Total spend per supplier, descending (SUM(total) GROUP BY supplier).
+    Unlike get_dashboard's top_suppliers it isn't fixed at 10 entries."""
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+    try:
+        limit = max(1, min(limit, 100))
+        total = func.sum(LineItem.total)
+        q = db.query(LineItem.supplier, total.label("total"), func.count(LineItem.id).label("count")).join(
+            Document, LineItem.document_id == Document.id
+        )
+        if user_id is not None:
+            ids = [user_id] if isinstance(user_id, int) else user_id
+            q = q.filter(Document.user_id.in_(ids))
+        rows = q.group_by(LineItem.supplier).order_by(total.desc()).limit(limit).all()
+        return [{"supplier": s or "Unknown", "total": round(t or 0, 2), "count": c} for s, t, c in rows]
     finally:
         if close_db:
             db.close()

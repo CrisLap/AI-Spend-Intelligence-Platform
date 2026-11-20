@@ -30,7 +30,18 @@ metrics:
       The single line items with the highest total - a real ranking over
       every record, not a semantic-search result.
     calculation: "ORDER BY line_items.total DESC LIMIT n"
-    source: app.services.agents.tools.top_expenses_tool_for
+    source: app.services.analytics.get_top_expenses
+    unit: currency
+
+  - name: spend_by_supplier
+    definition: >
+      Total spend and number of line items per supplier, highest first
+      (not capped at 10 like top_suppliers).
+    calculation: >
+      SUM(line_items.total), COUNT(line_items.id) GROUP BY supplier, ORDER BY
+      total DESC LIMIT n (n <= 100), filtered by Document.user_id IN
+      (visible scope).
+    source: app.services.analytics.get_spend_by_supplier
     unit: currency
 
   - name: supplier_variance_pct

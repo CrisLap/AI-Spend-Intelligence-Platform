@@ -4,8 +4,12 @@
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://ai-spend-intelligence-platform.vercel.app)
 
 **[Try the live demo →](https://ai-spend-intelligence-platform.vercel.app)**
-Login with `demo.admin@spendintel.io` / `demo.buyer@spendintel.io` / `demo.finance@spendintel.io`, password `DemoPass123!`
+Login with `demo.buyer@spendintel.io` or `demo.finance@spendintel.io`, password `DemoPass123!`
 (Backend on Render free tier — first request after inactivity can take ~30s to wake up.)
+
+> **The demo is public: do not upload real or confidential documents.** Anyone can register an account and every upload is visible to other accounts of the same role. The demo admin account is intentionally not published.
+
+![Dashboard](frontend/public/dashboard-screenshot.png)
 
 An enterprise AI platform that combines Retrieval-Augmented Generation and autonomous AI agents to analyze company spend, identify inefficiencies, and recommend cost-saving opportunities. Supports the entire lifecycle: document ingestion, UNSPSC classification, semantic search, RAG chat, a family of goal-driven multi-tool agents (Cost Saving, Forecast, Contract Risk) sharing one ReAct engine, anomaly and duplicate detection, analytics dashboard, and feedback-driven improvement loops.
 
@@ -61,10 +65,26 @@ numbers.
 ## Stack
 
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic, ThreadPoolExecutor
-- **AI:** Ollama (local LLM & embeddings), ReAct reasoning, Groq (free-tier cloud fallback when Ollama is unreachable, e.g. in production), fallback to deterministic hash embeddings offline
+- **AI:** ReAct reasoning with a fallback chain per capability. LLM: Ollama (local development only) → Groq (what the hosted demo actually uses) → deterministic offline stub. Embeddings: Ollama (local) → Jina (hosted demo) → deterministic hash embeddings
 - **Database:** PostgreSQL, Qdrant vector store
 - **Frontend:** React 19, TypeScript, Tailwind CSS v4, Recharts, i18next (EN/IT)
 - **DevOps:** Docker, Docker Compose, GitHub Actions (CI/CD), Render
+
+## What this project demonstrates
+
+| Skill | Where to look |
+|---|---|
+| LLM tool use & agents | One generic ReAct engine (`agents/react_engine.py`) with native structured tool calls on Groq (several calls per turn executed and traced) and a text-parsed fallback; three agents are just different tool registries |
+| Prompt engineering & guardrails | System prompts per agent, input validation and output sanitization on every free-text LLM input (`guardrails.py`) |
+| Evaluating LLM answers | `backend/evals/`: 25 questions checked against ground truth computed outside the LLM (SQL, the app's own deterministic functions), with degraded-run detection; see *Agent Answer Evaluation* |
+| MCP servers | `app/mcp/server.py`: 5 read-only tools over stdio and streamable HTTP, per-request JWT auth, role-scoped data |
+| Semantic model / metric definitions | `app/mcp/metrics.yaml` served as an MCP resource, with a test that keeps every metric tied to a real function |
+| Integrating business systems | `Connector` interface + CSV and mock ERP REST connectors (`app/services/connectors/`) |
+| Full stack web apps | FastAPI + SQLAlchemy/Alembic + PostgreSQL backend, React 19/TypeScript frontend (EN/IT i18n, SSE streaming) |
+| REST API design | Pydantic request/response schemas, OpenAPI docs, pagination bounds, role-based access, audit log |
+| Security | Role-scoped multi-tenancy, rate limiting, login lockout, upload validation, security headers; see [SECURITY.md](SECURITY.md) |
+| Software lifecycle | GitHub Actions (lint, types, tests with coverage gate, dependency audit, evals), Docker, Dependabot, 200+ tests |
+| AI-assisted development | `CLAUDE.md` and `.claude/` (project rules, review/QA subagents, consistency-check skill) used to build and review this codebase |
 
 ## Modules
 
@@ -98,7 +118,7 @@ A few implementation details that aren't obvious from the module table above:
 - **Guardrails apply everywhere an LLM sees free-text user input**, not just the Chat: `validate_input`/`sanitize_output` (`guardrails.py`) now guard the Cost Saving/Forecast/Contract Risk agents' `goal` too - a blocked goal skips the LLM call entirely, though the deterministic Recommendation Engine still runs (it depends on `agent_type` and real data, never on the goal text).
 - **Dashboard, Chat, and Cost Saving pages are lazily loaded.** `recharts` (Dashboard) and `react-markdown` (Chat, Cost Saving) accounted for most of a >500kB main-bundle warning at build time, so `App.tsx` code-splits those three routes with `React.lazy()` + a shared `Suspense` fallback instead of importing them eagerly with the rest of the app.
 - **Every user-facing string is localized (EN/IT), not just labels.** Frontend strings live in `frontend/src/i18n/locales/{en,it}/*.json`, one JSON file per feature area, read via `react-i18next`; `frontend/scripts/check-i18n-parity.mjs` enforces that both languages define the same keys and fails CI (`npm run check-i18n`, part of the `frontend-lint` job) if a new string is added to only one locale file. Backend-generated user-facing text (guardrail messages, anomaly/duplicate reasons, recommendation text) is localized the same way via `app/services/i18n_strings.py`, rendered once in the requester's language at generation time and stored fixed rather than re-rendered per viewer.
-- **Python is pinned to 3.12 everywhere (Dockerfile, CI), not auto-bumped.** `psycopg2-binary` was replaced with `psycopg[binary]` (psycopg 3) after a Dependabot-driven Docker base-image bump to `python:3.15-slim` revealed two compounding issues: the multi-stage Dockerfile's `COPY --from=base` step hardcodes the `site-packages` path per Python minor version (missed by that PR, since Dependabot only updates the `FROM` tag, not arbitrary path strings elsewhere in the file), and a newer SQLAlchemy 2.1.x resolves the bare `postgresql://` scheme to the `psycopg` v3 dialect by default - which wasn't installed, since the project only declared `psycopg2-binary`. Brand-new Python minor versions also routinely lack prebuilt wheels for this project's several C-extension dependencies (`numpy`, `pandas`, `scikit-learn`, `Pillow`, `psycopg`) for months after release. `.github/dependabot.yml`'s `docker` ecosystem entry now has an `ignore` rule blocking Dependabot from proposing a Python minor/major bump on its own (patch-level bumps, e.g. security fixes within 3.12.x, still flow through automatically) - a version bump here needs a human to check compiled-dependency wheel availability first, not an automatic merge.
+- **Python is pinned to 3.12 everywhere (Dockerfile, CI), not auto-bumped.** New Python minor versions routinely lack prebuilt wheels for the C-extension dependencies (`numpy`, `pandas`, `scikit-learn`, `Pillow`, `psycopg`), and the multi-stage Dockerfile hardcodes a per-minor-version `site-packages` path. Dependabot's `docker` entry therefore ignores Python minor/major bumps (patch bumps still flow through); the driver is `psycopg[binary]` (psycopg 3), which current SQLAlchemy resolves for the `postgresql://` scheme.
 - **Spend data visibility is scoped by role, not by individual user.** `get_visible_user_ids()` (`app/core/deps.py`) resolves, per request, the set of user ids the caller may see: everyone sharing their role, or no filter at all for Admin. Every read/write touching documents, line items, the dashboard, search, duplicates, anomalies, and contract clauses goes through this - both on the PostgreSQL side (`user_id IN (...)`) and on the Qdrant side (a `MatchAny` filter on the same ids), so vector search results never drift out of sync with what the relational queries return. Admin is enforced as a singleton: promoting a second user to Admin (`PATCH /users/{id}/role`) automatically demotes the current one to Buyer in the same transaction, rather than allowing two Admins to exist. The classifier's feedback exemplars (`classifier.py::_FEEDBACK_EXEMPLARS`) are similarly scoped by `(role, category)` instead of being one global pool, so a Buyer's corrections don't bias Finance's classifications. Chat sessions and Cost Saving Agent run history are the deliberate exception - they stay private per individual user even though the spend data they analyze is shared.
 
 ## Quick Start
@@ -152,9 +172,11 @@ python scripts/seed_demo_data.py            # skips if already seeded
 python scripts/seed_demo_data.py --reset    # wipes and reseeds
 ```
 
-Login with any of `demo.admin@spendintel.io` / `demo.buyer@spendintel.io` /
-`demo.finance@spendintel.io`, password `DemoPass123!` (printed by the script
-too). Requires `DATABASE_URL` to be reachable; Ollama/Qdrant are optional -
+Login with `demo.buyer@spendintel.io` or `demo.finance@spendintel.io`,
+password `DemoPass123!` (printed by the script too). The
+`demo.admin@spendintel.io` account sees every role's data, so its password
+is never hardcoded: set `DEMO_ADMIN_PASSWORD` before running the script, or
+a random one is generated and printed once at the end of the run. Requires `DATABASE_URL` to be reachable; Ollama/Qdrant are optional -
 the script falls back to the same offline methods the app itself uses if
 they aren't running. Since spend data is shared per role (see Design Notes
 above), the buyer and finance logins each see only their own seeded set
@@ -164,29 +186,61 @@ the existing one's data too, without needing to reseed anything.
 ### MCP Server
 
 An [MCP](https://modelcontextprotocol.io) server (`app/mcp/server.py`,
-using the official `mcp` Python SDK) exposes three read-only tools -
-`search_spend`, `list_anomalies`, `list_duplicates` - plus a
-`metrics://semantic-model` resource describing every metric this platform
-computes (name, definition, calculation rule - `app/mcp/metrics.yaml`),
-so an MCP client can look up what a number means before trusting it.
-Every tool call is scoped to the caller's visible spend data exactly the
-way every other entry point in this app is (`get_visible_user_ids()` -
-see Design Notes below): the server authenticates with a real JWT, not a
-separate credential.
+using the official `mcp` Python SDK) exposes five read-only tools -
+`search_spend`, `top_expenses`, `spend_by_supplier`, `list_anomalies`,
+`list_duplicates` - plus a `metrics://semantic-model` resource describing
+every metric this platform computes (name, definition, calculation rule,
+source function - `app/mcp/metrics.yaml`), so an MCP client can look up what
+a number means before trusting it. The ranking and per-supplier totals come
+from the same deterministic `analytics.py` functions the REST API and the
+agents use, never from model text, and a test fails if a metric's `source`
+stops resolving to a real function. Every tool call is scoped to the
+caller's visible spend data exactly the way every other entry point in this
+app is (`get_visible_user_ids()` - see Design Notes below): the server
+authenticates with a real JWT, not a separate credential.
 
 ```bash
 cd backend
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"you@example.com","password":"..."}' | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+
+# stdio (local client, e.g. Claude Desktop): token from the environment
 MCP_AUTH_TOKEN=$TOKEN python scripts/run_mcp_server.py
+
+# streamable HTTP (or --transport sse): every request carries its own token
+python scripts/run_mcp_server.py --transport streamable-http --port 8765
+#   clients send:  Authorization: Bearer $TOKEN   (endpoint: http://127.0.0.1:8765/mcp)
 ```
 
-Point an MCP client (e.g. Claude Desktop's `claude_desktop_config.json`)
-at it with a `command`/`args`/`env` block carrying `DATABASE_URL` and
-`MCP_AUTH_TOKEN`. The server refuses to start if `MCP_AUTH_TOKEN` is
-missing/invalid - a one-time local bootstrap failure, not a request path
-that needs to degrade gracefully like the Ollama/Groq/Jina calls do.
+For stdio, point an MCP client (e.g. Claude Desktop's
+`claude_desktop_config.json`) at it with a `command`/`args`/`env` block
+carrying `DATABASE_URL` and `MCP_AUTH_TOKEN`; the server refuses to start if
+the token is missing/invalid. On the HTTP transports the token is read from
+each request's `Authorization: Bearer` header and re-validated on every
+call, and `MCP_AUTH_TOKEN` is deliberately *not* used as a fallback, so the
+process owner's token can never serve an anonymous network caller. They bind
+to `127.0.0.1` by default; expose them beyond localhost only behind TLS.
+
+### ERP Connectors
+
+`POST /connectors/import` (Buyer/Admin) pulls spend lines from an external
+source through a small `Connector` interface
+(`app/services/connectors/`): a connector only *fetches and normalizes*
+rows, it never touches the database. The importer stores the result as an
+ordinary document owned by the caller (so role-scoped visibility applies)
+and writes an audit-log entry; classification, anomaly/duplicate detection
+and indexing then run in the existing `POST /documents/{id}/process` step,
+so a connector can't bypass any of it. Two implementations ship:
+`csv` (any ERP export - headers like `Vendor`, `Qty`, `PO Number` are mapped
+onto the platform's fields) and `mock_rest` (maps a nested purchase-order
+payload, hard-coded so it needs no network or credentials and can't become
+an SSRF vector). Adding a real ERP means one new `Connector` subclass.
+
+```bash
+curl -X POST http://localhost:8000/connectors/import -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"source": "mock_rest"}'
+```
 
 ### Production Deploy (zero-cost stack)
 
@@ -265,6 +319,8 @@ in `.env.example`.
 | GET | `/users/{id}/audit-log` | View a user's audit trail (admin only) |
 | POST | `/documents/upload` | Upload a document (PDF/CSV/Excel/Image) |
 | POST | `/documents/{id}/process` | Parse, classify, detect anomalies/duplicates |
+| POST | `/connectors/import` | Import spend lines from a connector (`csv`, `mock_rest`) as a new document (Buyer/Admin) |
+| GET | `/connectors` | List available connectors |
 | GET | `/documents` | List documents visible to the current user (shared with everyone sharing their role; all documents for admin) |
 | GET | `/documents/{id}` | Get document with line items |
 | DELETE | `/documents/{id}` | Delete a document |
@@ -322,15 +378,18 @@ in `.env.example`.
 
 ```bash
 cd backend
-python -m pytest tests/ -v
+python -m pytest tests/ -v --cov     # coverage; CI fails below 80%
+mypy                                  # permissive baseline, see pyproject.toml
 
 cd frontend
 npm test
 ```
 
-Backend: 169 pytest tests across 30 files (`backend/tests/`). Frontend:
-Vitest + React Testing Library, covering `AgentStepTimeline` and
-`RecommendationCard`; `npm test` runs in CI (`frontend-test` job).
+Backend: 204 pytest tests across 32 files (`backend/tests/`), 87% line
+coverage (measured 2026-11-20). Frontend: 28 Vitest + React Testing Library
+tests covering `AgentStepTimeline`, `RecommendationCard`, the `api.ts` SSE
+parser and error handling, and the Login page; `npm test` runs in CI
+(`frontend-test` job).
 
 ## RAG Evaluation
 
@@ -339,7 +398,7 @@ cd backend
 python scripts/evaluate_rag.py
 ```
 
-Measures retrieval precision, answer relevance, and faithfulness against a curated test set.
+A quick smoke test (3 sample questions, keyword/embedding-similarity checks) of retrieval precision, answer relevance, and faithfulness. It is a sanity check, not a benchmark: the real correctness check is the Agent Answer Evaluation below.
 
 ## Agent Answer Evaluation
 
@@ -377,7 +436,7 @@ a small delay between questions also reduces how often this happens.
 
 | Workflow | Trigger | Jobs |
 |----------|---------|------|
-| `ci.yml` | Push/PR to `main` | Backend lint (ruff), backend tests (pytest), backend dependency audit (pip-audit, non-blocking), backend agent answer evaluation (non-blocking, publishes a report artifact), frontend lint (tsc typecheck + i18n key-parity check + `npm audit --audit-level=high`), frontend build (vite), frontend tests (vitest) |
+| `ci.yml` | Push/PR to `main` | Backend lint (ruff + mypy), backend tests (pytest with an 80% coverage gate), backend dependency audit (pip-audit, non-blocking), backend agent answer evaluation (non-blocking, publishes a report artifact), frontend lint (tsc typecheck + i18n key-parity check + `npm audit --audit-level=high`), frontend build (vite), frontend tests (vitest) |
 | `cd.yml` | Push to `main` | Build Docker image → push to GHCR → deploy to Render |
 | `keepalive.yml` | Schedule (every 10 min) + manual dispatch | Ping `/health` on the deployed Render API to keep the free-tier service warm |
 
@@ -385,8 +444,8 @@ a small delay between questions also reduces how often this happens.
 `Backend Tests`, `Frontend Lint`, `Frontend Build`, and `Frontend Tests`
 to pass before merging (Settings → Branches → Add rule). Without it, a
 PR - including an automated one from Dependabot - can be merged with a
-red CI, which is exactly how the Python-version incident described in
-Design Notes above reached `main` unnoticed. `Backend Dependency Audit`
+red CI (a Dependabot Python base-image bump once reached `main` that way,
+see the Python note in Design Notes). `Backend Dependency Audit`
 and `Backend Agent Answer Evaluation` are deliberately not required
 status checks - both run with `continue-on-error: true` by design (an
 audit finding or a degraded eval run isn't a reason to block a merge).
@@ -423,12 +482,14 @@ backend/
       guardrails.py          → Input validation & output sanitization
       audit_service.py       → Audit trail (login, uploads, corrections, retrain, role changes, agent runs)
       executor.py            → Thread pool for CPU-bound tasks
+      connectors/            → Connector interface, CSV + mock ERP REST connectors, importer (stores a normal document, audit-logged)
     mcp/
-      server.py              → MCP server (search_spend, list_anomalies, list_duplicates tools + metrics://semantic-model resource)
-      metrics.yaml           → Semantic model: name, definition, calculation rule for every metric this platform computes
-  evals/               → Agent Answer Evaluation suite: questions.yaml (ground-truth questions), fixtures.py (isolated dataset), run_eval.py
-  scripts/             → RAG evaluation (evaluate_rag.py), demo data seeding (seed_demo_data.py), MCP server entry point (run_mcp_server.py)
-  tests/               → 169 pytest tests (30 files)
+      server.py              → MCP server (search_spend, top_expenses, spend_by_supplier, list_anomalies, list_duplicates tools + metrics://semantic-model resource), stdio + HTTP
+      metrics.yaml           → Semantic model: name, definition, calculation rule, source function for every metric this platform computes
+  evals/               → Agent Answer Evaluation suite: questions.yaml (ground-truth questions), fixtures.py (isolated dataset), run_eval.py, results/ (latest report)
+  scripts/             → RAG smoke test (evaluate_rag.py), demo data seeding (seed_demo_data.py), MCP server entry point (run_mcp_server.py)
+SECURITY.md            → Threat model, controls, deliberate limitations
+  tests/               → 204 pytest tests (32 files)
   Dockerfile
 frontend/
   src/
@@ -451,10 +512,10 @@ This is a working, deployed system — not a mockup — but it runs on a free-ti
 
 - **Cold starts**: the Render backend spins down after inactivity; a `keepalive.yml` workflow pings `/health` every 10 minutes to reduce this, but GitHub disables scheduled workflows on inactive repos, so occasional cold starts (~30s) are still possible.
 - **Demo database lifecycle**: the free-tier Postgres instance expires after 90 days — fine for demo purposes, not a claim of production-grade persistence.
-- **LLM path**: Ollama (local) is the primary inference path; Groq is a free-tier cloud fallback used automatically when Ollama is unreachable (e.g., in this hosted demo, where there's no local Ollama instance running).
+- **LLM path**: the hosted demo runs on Groq (chat) and Jina (embeddings) free tiers, with no Ollama instance. Ollama is the primary path only for local/Docker Compose runs, and the deterministic offline fallbacks cover the case where no provider is reachable.
 - **Demo data**: the seeded demo data (documents, transactions, contracts) is synthetic, generated by `scripts/seed_demo_data.py` for demonstration purposes — not real spend data.
 
-None of this affects the architecture or the test suite (169 tests, CI green on every push) — it reflects the hosting tier, not the code.
+None of this affects the architecture or the test suite (204 backend tests, CI green on every push) — it reflects the hosting tier, not the code.
 
 
 

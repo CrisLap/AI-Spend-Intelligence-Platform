@@ -15,6 +15,7 @@ from app.api import (
     auth,
     chat,
     classification,
+    connectors,
     cost_saving,
     documents,
     duplicates,
@@ -55,6 +56,25 @@ async def timing_middleware(request: Request, call_next):
     return response
 
 
+# The Swagger/ReDoc pages load scripts and styles from a CDN, so a strict CSP
+# would break them; they are exempt from the CSP header only.
+_DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if not request.url.path.startswith(_DOCS_PATHS):
+        # A pure JSON API never needs to load or embed anything.
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    if settings.environment == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
 def _check_required_config():
     if settings.environment != "production":
         return
@@ -88,12 +108,15 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "app": settings.app_name, "version": "1.0.0", "environment": settings.environment}
+    # Deliberately minimal: this is public (keep-alive pings, load balancer
+    # probes), so it doesn't disclose the version or environment.
+    return {"status": "ok"}
 
 
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(documents.router)
+app.include_router(connectors.router)
 app.include_router(classification.router)
 app.include_router(search.router)
 app.include_router(chat.router)

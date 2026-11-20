@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.document import Document, LineItem
 from app.services.agents.react_engine import Tool
-from app.services.analytics import forecast_next_month_spend, get_dashboard, get_supplier_variance
+from app.services.analytics import forecast_next_month_spend, get_dashboard, get_supplier_variance, get_top_expenses
 from app.services.anomalies import detect_anomalies
 from app.services.contract_intelligence import search_contracts
 
@@ -89,20 +89,13 @@ def _top_expenses_tool(user_id: int | list[int] | None, db: Session):
         q = (query or "").strip()
         n = int(q) if q.isdigit() else 5
         n = max(1, min(n, 20))
-        rows_query = (
-            db.query(LineItem, Document.original_name)
-            .join(Document, LineItem.document_id == Document.id)
-        )
-        if user_id is not None:
-            ids = [user_id] if isinstance(user_id, int) else user_id
-            rows_query = rows_query.filter(Document.user_id.in_(ids))
-        rows = rows_query.order_by(LineItem.total.desc()).limit(n).all()
+        rows = get_top_expenses(user_id=user_id, db=db, limit=n)
         if not rows:
             return "No line items found for this user."
         return "\n".join(
-            f"€{item.total:,.2f} - {item.description} - {item.supplier or 'unknown supplier'} "
-            f"(category: {item.category_label or 'n/a'}, source: {doc_name}, invoice: {item.invoice_number or 'n/a'})"
-            for item, doc_name in rows
+            f"€{r['total']:,.2f} - {r['description']} - {r['supplier'] or 'unknown supplier'} "
+            f"(category: {r['category'] or 'n/a'}, source: {r['source']}, invoice: {r['invoice_number'] or 'n/a'})"
+            for r in rows
         )
 
     return _call

@@ -148,29 +148,41 @@ def _parse_step(reply: str) -> tuple[str | None, str | None, str | None]:
     return None, None, None
 
 
+# A provider can return several tool_calls in one turn (parallel function
+# calling). They are all executed, but bounded: each one is a real query, and
+# a runaway reply must not fan out unbounded work.
+MAX_TOOL_CALLS_PER_TURN = 4
+
+
 def _parse_structured_turn(
     result: dict, tool_map: dict[str, Tool]
-) -> tuple[str | None, str | None, str | None, str | None, str]:
+) -> tuple[list[tuple[str, str]], str | None, str | None, str]:
     """Interprets one turn of chat_with_tools()'s {"content", "tool_calls"}
-    result. Returns (tool_name, tool_input, final_answer, thought, mode).
+    result. Returns (calls, final_answer, thought, mode), where `calls` is
+    the ordered list of (tool_name, tool_input) to execute this turn.
 
-    Only the first tool_call is acted on when the provider returns more
-    than one - this engine's scratchpad is built around one action per
-    turn (matching the text-parsed ReAct format everywhere else), so
-    executing several tools in parallel here would break that invariant
-    for no real benefit at this codebase's scale.
+    Every structured tool_call naming a registered tool is returned (up to
+    MAX_TOOL_CALLS_PER_TURN); calls naming an unknown tool are dropped. The
+    loop runs them in order and records each call and its observation in the
+    scratchpad, which the next turn's prompt is rebuilt from.
     """
     tool_calls = result.get("tool_calls")
     content = result.get("content") or ""
-    if tool_calls:
-        call = tool_calls[0]
-        name = call.get("function", {}).get("name")
-        if name in tool_map:
-            try:
-                args = json.loads(call["function"].get("arguments") or "{}")
-            except (ValueError, TypeError):
-                args = {}
-            return name, str(args.get("input", "")), None, None, "structured"
+    calls: list[tuple[str, str]] = []
+    for call in (tool_calls or [])[:MAX_TOOL_CALLS_PER_TURN]:
+        function = call.get("function") or {}
+        name = function.get("name")
+        if name not in tool_map:
+            continue
+        try:
+            args = json.loads(function.get("arguments") or "{}")
+        except (ValueError, TypeError):
+            args = {}
+        if not isinstance(args, dict):
+            args = {}
+        calls.append((name, str(args.get("input", ""))))
+    if calls:
+        return calls, None, None, "structured"
     # No usable structured tool call this turn (Groq answered in plain text,
     # or fell through to Ollama/offline inside chat_with_tools): fall back to
     # the same text parsing every other path uses, so a reply without a
@@ -180,7 +192,8 @@ def _parse_structured_turn(
     thought = thought_match.group(1).strip() if thought_match else None
     if not tool_name and not final_answer:
         final_answer = content or None
-    return tool_name, tool_input, final_answer, thought, "text_parsed"
+    calls = [(tool_name, tool_input)] if tool_name and tool_input is not None else []
+    return calls, final_answer, thought, "text_parsed"
 
 
 def iter_react_steps(
@@ -228,36 +241,41 @@ def iter_react_steps(
 
         if chat_with_tools_fn is not None:
             result = chat_with_tools_fn(messages, tool_schemas)
-            tool_name, tool_input, final_answer, thought, mode = _parse_structured_turn(result, tool_map)
+            calls, final_answer, thought, mode = _parse_structured_turn(result, tool_map)
             last_reply = result.get("content") or ""
         else:
             reply = chat_fn(messages)
             last_reply = reply or ""
             tool_name, tool_input, final_answer = _parse_step(last_reply)
+            calls = [(tool_name, tool_input)] if tool_name and tool_input is not None else []
             thought_match = _THOUGHT_RE.search(last_reply)
             thought = thought_match.group(1).strip() if thought_match else None
             mode = "text_parsed"
 
         if final_answer is not None:
-            step_obj = ReactStep(index=step, thought=thought, tool=None, tool_input=None, observation=None, mode=None)
+            step_obj = ReactStep(
+                index=steps_yielded, thought=thought, tool=None, tool_input=None, observation=None, mode=None
+            )
             yield step_obj, final_answer
             return
 
-        if tool_name and tool_name in tool_map and step < max_steps - 1:
-            tool = tool_map[tool_name]
-            # Tool output can echo uploaded-document content verbatim (see
-            # agents/tools.py) - redact it the same way the final answer
-            # already is, since this text is streamed to the client as-is
-            # per SSE step (step_to_dict), not just used internally.
-            observation_text = sanitize_output(format_observations(tool.fn(tool_input)))
-            scratchpad_steps.append(f'Thought/Action (step {step + 1}): called {tool_name}["{tool_input}"]')
-            scratchpad_steps.append(f"Observation {step + 1}: {observation_text}")
-            step_obj = ReactStep(
-                index=step, thought=thought, tool=tool_name, tool_input=tool_input,
-                observation=observation_text, mode=mode,
-            )
-            steps_yielded += 1
-            yield step_obj, None
+        runnable = [(n, i) for n, i in calls if n in tool_map]
+        if runnable and step < max_steps - 1:
+            for call_number, (tool_name, tool_input) in enumerate(runnable):
+                tool = tool_map[tool_name]
+                # Tool output can echo uploaded-document content verbatim (see
+                # agents/tools.py) - redact it the same way the final answer
+                # already is, since this text is streamed to the client as-is
+                # per SSE step (step_to_dict), not just used internally.
+                observation_text = sanitize_output(format_observations(tool.fn(tool_input)))
+                scratchpad_steps.append(f'Thought/Action (step {step + 1}): called {tool_name}["{tool_input}"]')
+                scratchpad_steps.append(f"Observation {step + 1}: {observation_text}")
+                step_obj = ReactStep(
+                    index=steps_yielded, thought=thought if call_number == 0 else None,
+                    tool=tool_name, tool_input=tool_input, observation=observation_text, mode=mode,
+                )
+                steps_yielded += 1
+                yield step_obj, None
             continue
 
         # Model didn't follow the format, referenced an unknown tool, or

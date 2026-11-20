@@ -23,8 +23,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-      - run: pip install -r requirements.txt ruff
+      - run: pip install -r requirements.txt ruff mypy types-PyYAML
       - run: ruff check app/ tests/
+      # Permissive baseline configured in pyproject.toml ([tool.mypy]).
+      - run: mypy
 
   backend-test:
     name: Backend Tests
@@ -39,7 +41,8 @@ jobs:
           python-version: "3.12"
           cache: "pip"
       - run: pip install -r requirements-dev.txt
-      - run: python -m pytest tests/ -v --tb=short
+      # Coverage gate: measured 87% on 2026-11-20; raise the floor as it grows.
+      - run: python -m pytest tests/ -v --tb=short --cov --cov-fail-under=80
 
   backend-audit:
     name: Backend Dependency Audit

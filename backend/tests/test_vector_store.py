@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import numpy as np
+from qdrant_client import QdrantClient
 
 from app.services import vector_store
 
@@ -47,13 +48,15 @@ def test_ensure_collection_creates_when_missing(monkeypatch):
 
 def test_search_formats_hits_with_mocked_client(monkeypatch):
     _reset_module_state()
-    fake_client = MagicMock()
+    # spec= pins the mock to the real QdrantClient API: calling a method the
+    # installed client doesn't have (like the removed .search) raises.
+    fake_client = MagicMock(spec=QdrantClient)
     fake_client.get_collections.return_value = MagicMock(
         collections=[MagicMock(name="spend_documents")]
     )
     fake_client.get_collections.return_value.collections = []
     hit = MagicMock(id=42, score=0.91, payload={"description": "HP toner", "supplier": "HP"})
-    fake_client.search.return_value = [hit]
+    fake_client.query_points.return_value = MagicMock(points=[hit])
     monkeypatch.setattr(vector_store, "get_client", lambda: fake_client)
 
     vec = np.ones(768, dtype=np.float32)
@@ -68,16 +71,30 @@ def test_search_handles_hit_with_none_payload(monkeypatch):
     """A point with no payload (partial write, or inserted by another
     process) must not crash the whole search with a TypeError."""
     _reset_module_state()
-    fake_client = MagicMock()
+    fake_client = MagicMock(spec=QdrantClient)
     fake_client.get_collections.return_value = MagicMock(collections=[])
     hit = MagicMock(id=7, score=0.5, payload=None)
-    fake_client.search.return_value = [hit]
+    fake_client.query_points.return_value = MagicMock(points=[hit])
     monkeypatch.setattr(vector_store, "get_client", lambda: fake_client)
 
     vec = np.ones(768, dtype=np.float32)
     results = vector_store.search(vec, top_k=3)
 
     assert results == [{"line_item_id": 7, "score": 0.5}]
+
+
+def test_search_contracts_formats_hits_with_mocked_client(monkeypatch):
+    _reset_module_state()
+    fake_client = MagicMock(spec=QdrantClient)
+    fake_client.get_collections.return_value = MagicMock(collections=[])
+    hit = MagicMock(id=3, score=0.8, payload={"text": "auto renewal"})
+    fake_client.query_points.return_value = MagicMock(points=[hit])
+    monkeypatch.setattr(vector_store, "get_client", lambda: fake_client)
+
+    results = vector_store.search_contracts(np.ones(768, dtype=np.float32), top_k=2, user_id=[1, 2])
+
+    assert results == [{"chunk_id": 3, "score": 0.8, "text": "auto renewal"}]
+    assert fake_client.query_points.call_args.kwargs["limit"] == 2
 
 
 def test_ensure_collection_cache_expires_and_rechecks(monkeypatch):

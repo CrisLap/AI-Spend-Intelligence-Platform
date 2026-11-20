@@ -29,14 +29,10 @@
 #                   insensitive substring match).
 #   contains_any  - same, but passes if any of `expected_any` matches.
 #
-# Known limitation (found while testing this harness against the offline
-# fallback stub, which echoes the question back verbatim): for
-# forecast_trend_direction/contract_renewal_clause/contract_penalty_clause
-# below, the expected_any keyword is also a word in the Italian question
-# itself, so a degraded run's echoed-question reply trivially "passes".
-# Harmless for CI gating (a degraded run never fails the build on pass
-# rate - see run_eval.py), but worth knowing these three are weaker
-# signal than the numeric/SQL-grounded questions even on a real LLM run.
+# Note: the offline fallback stub echoes the question back verbatim, so any
+# `contains*` question whose expected keyword also appears in the question
+# text would trivially pass on a degraded run. The three keyword questions
+# at the bottom are phrased to avoid that (see the comment there).
 
 questions:
   - id: total_spend_all
@@ -243,20 +239,27 @@ questions:
     reference_fn: app.services.analytics.forecast_next_month_spend
     reference_field: forecast_next_month
 
+  # The three questions below are phrased so that none of their expected
+  # keywords appears in the question text: an answer only passes if the
+  # agent actually surfaced the fact from the data, and a degraded run that
+  # merely echoes the question back fails instead of trivially passing.
   - id: forecast_trend_direction
-    question: "Il trend di spesa è in aumento o in calo?"
+    question: "Come evolve la spesa mensile secondo la previsione?"
     target: forecast
     compare: contains_any
-    expected_any: ["aumento", "crescita", "crescente", "cresc", "increas"]
+    # The fixture's monthly totals rise every month (1940 -> 5355).
+    expected_any: ["aumento", "crescita", "crescente", "cresc", "increas", "rising", "upward"]
 
   - id: contract_renewal_clause
-    question: "C'è un contratto con una clausola di rinnovo automatico da rivedere?"
+    question: "Con quanto preavviso va disdetto il contratto per evitare il rinnovo automatico?"
     target: contract_risk
     compare: contains_any
-    expected_any: ["rinnovo", "renewal"]
+    # The contract text (fixtures.py) states 90 days notice; the question has no "90".
+    expected_any: ["90"]
 
   - id: contract_penalty_clause
-    question: "C'è una penale di recesso anticipato in uno dei contratti?"
+    question: "A quanto ammonta la penale per il recesso anticipato dal contratto?"
     target: contract_risk
     compare: contains_any
-    expected_any: ["penale", "penalty"]
+    # The contract text states 10% of the remaining contract value; the question has no "10".
+    expected_any: ["10%", "10 %", "10 per cento", "10 percent"]

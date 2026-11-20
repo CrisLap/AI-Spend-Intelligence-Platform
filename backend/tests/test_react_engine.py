@@ -194,3 +194,92 @@ def test_structured_mode_ignores_a_tool_call_for_an_unregistered_tool():
     # No content and no matching tool -> same "give up gracefully" fallback
     # as the text-parsed unknown-tool/no-format case.
     assert trace.final_answer == "I couldn't find enough information to answer that."
+
+
+def _call(name: str, **args) -> dict:
+    import json as _json
+
+    return {"function": {"name": name, "arguments": _json.dumps(args)}}
+
+
+def test_structured_mode_executes_every_tool_call_in_a_turn():
+    """A provider may return several tool_calls at once; all of them must run
+    (in order), each as its own trace step, and every observation must reach
+    the next turn's prompt - not just the first call's."""
+    turns = {"n": 0}
+    seen_prompts: list[str] = []
+    ran: list[tuple[str, str]] = []
+
+    def fake_chat_with_tools(messages, tools):
+        turns["n"] += 1
+        seen_prompts.append(messages[1]["content"])
+        if turns["n"] == 1:
+            return {"content": None, "tool_calls": [_call("alpha", input="a1"), _call("beta", input="b1")]}
+        return {"content": "Thought: done.\nFinal Answer: both used.", "tool_calls": None}
+
+    def make(name):
+        return Tool(name=name, description=name, fn=lambda q, name=name: (ran.append((name, q)), f"{name}-result")[1])
+
+    trace = run_react(
+        chat_fn=lambda m: "unused", system_prompt="sys", task_prompt="task",
+        tools=[make("alpha"), make("beta")], max_steps=3, chat_with_tools_fn=fake_chat_with_tools,
+    )
+
+    assert ran == [("alpha", "a1"), ("beta", "b1")]
+    assert [(s.tool, s.observation, s.mode) for s in trace.steps[:2]] == [
+        ("alpha", "alpha-result", "structured"),
+        ("beta", "beta-result", "structured"),
+    ]
+    assert [s.index for s in trace.steps] == [0, 1, 2]  # unique, increasing, final step last
+    assert "alpha-result" in seen_prompts[1] and "beta-result" in seen_prompts[1]
+    assert trace.final_answer == "both used."
+
+
+def test_structured_mode_caps_tool_calls_per_turn_and_drops_unknown_tools():
+    from app.services.agents.react_engine import MAX_TOOL_CALLS_PER_TURN
+
+    ran: list[str] = []
+    turns = {"n": 0}
+
+    def fake_chat_with_tools(messages, tools):
+        turns["n"] += 1
+        if turns["n"] == 1:
+            calls = [_call("ghost", input="x")] + [_call("alpha", input=str(i)) for i in range(MAX_TOOL_CALLS_PER_TURN + 3)]
+            return {"content": None, "tool_calls": calls}
+        return {"content": "Final Answer: ok", "tool_calls": None}
+
+    tool = Tool(name="alpha", description="a", fn=lambda q: (ran.append(q), "r")[1])
+    run_react(
+        chat_fn=lambda m: "unused", system_prompt="sys", task_prompt="task",
+        tools=[tool], max_steps=3, chat_with_tools_fn=fake_chat_with_tools,
+    )
+
+    # The unknown tool is skipped, and the cap applies to the calls received
+    # (the ghost call counts toward it), so MAX-1 real calls run.
+    assert ran == [str(i) for i in range(MAX_TOOL_CALLS_PER_TURN - 1)]
+
+
+def test_structured_mode_tolerates_malformed_tool_arguments():
+    turns = {"n": 0}
+    got: list[str] = []
+
+    def fake_chat_with_tools(messages, tools):
+        turns["n"] += 1
+        if turns["n"] == 1:
+            return {
+                "content": None,
+                "tool_calls": [
+                    {"function": {"name": "alpha", "arguments": "{not json"}},
+                    {"function": {"name": "alpha", "arguments": '["a", "list"]'}},
+                ],
+            }
+        return {"content": "Final Answer: ok", "tool_calls": None}
+
+    tool = Tool(name="alpha", description="a", fn=lambda q: (got.append(q), "r")[1])
+    trace = run_react(
+        chat_fn=lambda m: "unused", system_prompt="sys", task_prompt="task",
+        tools=[tool], max_steps=3, chat_with_tools_fn=fake_chat_with_tools,
+    )
+
+    assert got == ["", ""]  # both ran with an empty input instead of crashing
+    assert trace.final_answer == "ok"

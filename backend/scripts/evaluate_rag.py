@@ -1,8 +1,11 @@
 """
-RAG evaluation script using RAGAS-inspired metrics.
+RAG smoke test using RAGAS-inspired metrics.
 
-Evaluates retrieval precision, answer relevance, and faithfulness
-of the spend intelligence RAG pipeline against a curated test set.
+Checks retrieval precision, answer relevance, and faithfulness of the
+spend intelligence RAG pipeline on a handful of sample questions. It is a
+quick sanity check (3 cases, keyword/embedding-similarity based), not a
+benchmark - for numeric correctness against a known ground truth use
+evals/run_eval.py instead.
 
 Usage:
     python scripts/evaluate_rag.py

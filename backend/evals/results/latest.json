@@ -1,0 +1,256 @@
+{
+  "pass_rate": 0.0,
+  "degraded": true,
+  "results": [
+    {
+      "id": "total_spend_all",
+      "question": "Qual è la spesa totale registrata finora?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 12045.0,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Qual è la spesa totale registrata finora?\n\n## Question\nQual è la spesa totale registrata finora?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_invoices.csv] I",
+      "passed": false
+    },
+    {
+      "id": "total_line_items_count",
+      "question": "Quante voci di spesa (line item) sono state registrate in totale?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 17,
+      "actual": null,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quante voci di spesa (line item) sono state registrate in totale?\n\n## Question\nQuante voci di spesa (line item) sono state registrate in totale?\n\n## Scratchpad\nObservatio",
+      "passed": false
+    },
+    {
+      "id": "total_documents_count",
+      "question": "Quanti documenti sono stati caricati in totale?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 2,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanti documenti sono stati caricati in totale?\n\n## Question\nQuanti documenti sono stati caricati in totale?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_inv",
+      "passed": false
+    },
+    {
+      "id": "contract_documents_count",
+      "question": "Quanti contratti sono stati caricati?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 1,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanti contratti sono stati caricati?\n\n## Question\nQuanti contratti sono stati caricati?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_invoices.csv] IT Servic",
+      "passed": false
+    },
+    {
+      "id": "acme_total_spend",
+      "question": "Quanto abbiamo spesato in totale con il fornitore Acme Corp?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 5700.0,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato in totale con il fornitore Acme Corp?\n\n## Question\nQuanto abbiamo spesato in totale con il fornitore Acme Corp?\n\n## Scratchpad\nObservation 0 (initi",
+      "passed": false
+    },
+    {
+      "id": "office_depot_total_spend",
+      "question": "Quanto abbiamo spesato in totale con Office Depot?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 605.0,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato in totale con Office Depot?\n\n## Question\nQuanto abbiamo spesato in totale con Office Depot?\n\n## Scratchpad\nObservation 0 (initial context): [1] [ev",
+      "passed": false
+    },
+    {
+      "id": "global_logistics_total_spend",
+      "question": "Quanto abbiamo spesato in totale con Global Logistics?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 2020.0,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato in totale con Global Logistics?\n\n## Question\nQuanto abbiamo spesato in totale con Global Logistics?\n\n## Scratchpad\nObservation 0 (initial context):",
+      "passed": false
+    },
+    {
+      "id": "cloudhost_total_spend",
+      "question": "Quanto abbiamo spesato in totale con CloudHost Inc?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 1220.0,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato in totale con CloudHost Inc?\n\n## Question\nQuanto abbiamo spesato in totale con CloudHost Inc?\n\n## Scratchpad\nObservation 0 (initial context): [1] [",
+      "passed": false
+    },
+    {
+      "id": "hardware_category_total",
+      "question": "Quanto abbiamo spesato nella categoria Hardware?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 2500.0,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato nella categoria Hardware?\n\n## Question\nQuanto abbiamo spesato nella categoria Hardware?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_i",
+      "passed": false
+    },
+    {
+      "id": "january_month_total",
+      "question": "Quanto abbiamo spesato nel mese di gennaio 2025?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 1940.0,
+      "actual": 2025.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato nel mese di gennaio 2025?\n\n## Question\nQuanto abbiamo spesato nel mese di gennaio 2025?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_i",
+      "passed": false
+    },
+    {
+      "id": "february_month_total",
+      "question": "Quanto abbiamo spesato nel mese di febbraio 2025?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 1960.0,
+      "actual": 2025.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato nel mese di febbraio 2025?\n\n## Question\nQuanto abbiamo spesato nel mese di febbraio 2025?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval",
+      "passed": false
+    },
+    {
+      "id": "march_month_total",
+      "question": "Quanto abbiamo spesato nel mese di marzo 2025?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 2790.0,
+      "actual": 2025.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato nel mese di marzo 2025?\n\n## Question\nQuanto abbiamo spesato nel mese di marzo 2025?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_invoi",
+      "passed": false
+    },
+    {
+      "id": "april_month_total",
+      "question": "Quanto abbiamo spesato nel mese di aprile 2025?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 5355.0,
+      "actual": 2025.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quanto abbiamo spesato nel mese di aprile 2025?\n\n## Question\nQuanto abbiamo spesato nel mese di aprile 2025?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_inv",
+      "passed": false
+    },
+    {
+      "id": "top_expense_amount",
+      "question": "Qual è l'importo della singola voce di spesa più alta registrata?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 2500.0,
+      "actual": null,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Qual è l'importo della singola voce di spesa più alta registrata?\n\n## Question\nQual è l'importo della singola voce di spesa più alta registrata?\n\n## Scratchpad\nObservatio",
+      "passed": false
+    },
+    {
+      "id": "top_expense_supplier",
+      "question": "Qual è il fornitore associato alla spesa più alta registrata?",
+      "target": "chat",
+      "compare": "contains_any",
+      "expected": null,
+      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Qual è il fornitore associato alla spesa più alta registrata?\n\n## Question\nQual è il fornitore associato alla spesa più alta registrata?\n\n## Scratchpad\nObservation 0 (ini",
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Qual è il fornitore associato alla spesa più alta registrata?\n\n## Question\nQual è il fornitore associato alla spesa più alta registrata?\n\n## Scratchpad\nObservation 0 (ini",
+      "passed": false
+    },
+    {
+      "id": "anomaly_count",
+      "question": "Quante anomalie di spesa sono state rilevate?",
+      "target": "chat",
+      "compare": "numeric",
+      "expected": 1,
+      "actual": 0.0,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Quante anomalie di spesa sono state rilevate?\n\n## Question\nQuante anomalie di spesa sono state rilevate?\n\n## Scratchpad\nObservation 0 (initial context): [1] [eval_invoice",
+      "passed": false
+    },
+    {
+      "id": "top_variance_supplier_cost_saving",
+      "question": "Quale fornitore ha avuto il maggiore aumento di spesa recente?",
+      "target": "cost_saving",
+      "compare": "contains_any",
+      "expected": null,
+      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nQuale fornitore ha avuto il maggiore aumento di spesa recente?\n\n## Scratchpad\n(empty)\n",
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nQuale fornitore ha avuto il maggiore aumento di spesa recente?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "acme_variance_pct",
+      "question": "Di quanto è variata percentualmente la spesa recente con Acme Corp rispetto al periodo precedente?",
+      "target": "cost_saving",
+      "compare": "numeric",
+      "expected": 85.0,
+      "actual": null,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con Acme Corp rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "office_depot_variance_pct",
+      "question": "Di quanto è variata percentualmente la spesa recente con Office Depot rispetto al periodo precedente?",
+      "target": "cost_saving",
+      "compare": "numeric",
+      "expected": 8.6,
+      "actual": null,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con Office Depot rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "cloudhost_variance_pct",
+      "question": "Di quanto è variata percentualmente la spesa recente con CloudHost Inc rispetto al periodo precedente?",
+      "target": "cost_saving",
+      "compare": "numeric",
+      "expected": 6.8,
+      "actual": null,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con CloudHost Inc rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "global_logistics_variance_pct",
+      "question": "Di quanto è variata percentualmente la spesa recente con Global Logistics rispetto al periodo precedente?",
+      "target": "cost_saving",
+      "compare": "numeric",
+      "expected": -2.0,
+      "actual": null,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con Global Logistics rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "forecast_next_month_amount",
+      "question": "Qual è la previsione di spesa per il prossimo mese?",
+      "target": "forecast",
+      "compare": "numeric",
+      "expected": 5780.0,
+      "actual": null,
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nQual è la previsione di spesa per il prossimo mese?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "forecast_trend_direction",
+      "question": "Come evolve la spesa mensile secondo la previsione?",
+      "target": "forecast",
+      "compare": "contains_any",
+      "expected": null,
+      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCome evolve la spesa mensile secondo la previsione?\n\n## Scratchpad\n(empty)\n",
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCome evolve la spesa mensile secondo la previsione?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "contract_renewal_clause",
+      "question": "Con quanto preavviso va disdetto il contratto per evitare il rinnovo automatico?",
+      "target": "contract_risk",
+      "compare": "contains_any",
+      "expected": null,
+      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCon quanto preavviso va disdetto il contratto per evitare il rinnovo automatico?\n\n## Scratchpad\n(empty)\n",
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCon quanto preavviso va disdetto il contratto per evitare il rinnovo automatico?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    },
+    {
+      "id": "contract_penalty_clause",
+      "question": "A quanto ammonta la penale per il recesso anticipato dal contratto?",
+      "target": "contract_risk",
+      "compare": "contains_any",
+      "expected": null,
+      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nA quanto ammonta la penale per il recesso anticipato dal contratto?\n\n## Scratchpad\n(empty)\n",
+      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nA quanto ammonta la penale per il recesso anticipato dal contratto?\n\n## Scratchpad\n(empty)\n",
+      "passed": false
+    }
+  ]
+}

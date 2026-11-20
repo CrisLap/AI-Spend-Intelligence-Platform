@@ -71,7 +71,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import random
+import secrets
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -107,8 +109,15 @@ from app.services.vector_store import delete_contract_chunks, upsert_line_item  
 
 DEMO_MARKER_EMAIL = "demo.admin@spendintel.io"
 
+# The admin demo account sees every role's data and can change roles / delete
+# users, so its password is never published or hardcoded: it comes from
+# DEMO_ADMIN_PASSWORD, or is generated randomly and printed once to the
+# console at the end of the run. Buyer/finance demo accounts only see their
+# own role's synthetic data and keep the shared, publicly documented password.
+DEMO_ADMIN_PASSWORD = os.environ.get("DEMO_ADMIN_PASSWORD") or secrets.token_urlsafe(16)
+
 DEMO_USERS = [
-    {"email": "demo.admin@spendintel.io", "full_name": "Alessia Ferrari", "role": "admin", "password": "DemoPass123!"},
+    {"email": "demo.admin@spendintel.io", "full_name": "Alessia Ferrari", "role": "admin", "password": DEMO_ADMIN_PASSWORD},
     {"email": "demo.buyer@spendintel.io", "full_name": "Marco Colombo", "role": "buyer", "password": "DemoPass123!"},
     {"email": "demo.finance@spendintel.io", "full_name": "Giulia Bianchi", "role": "finance", "password": "DemoPass123!"},
 ]
@@ -582,6 +591,9 @@ def seed(db) -> None:
     print("\nDone. Log in with any of:")
     for u in DEMO_USERS:
         print(f"  {u['email']} / {u['password']}  (role: {u['role']})")
+    if not os.environ.get("DEMO_ADMIN_PASSWORD"):
+        print("\nThe admin password above was generated randomly and is not stored")
+        print("anywhere else - set DEMO_ADMIN_PASSWORD to choose your own.")
     print("\nTry: the dashboard (spend by month/category/supplier), Duplicates,")
     print("Anomalies, semantic search ('toner HP'), the chat ('quanto abbiamo")
     print("speso in consulenza?'), and the Cost Saving Agent ('Trova opportunità")

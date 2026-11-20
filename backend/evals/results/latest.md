@@ -1,0 +1,33 @@
+# Agent Answer Evaluation Report
+
+> **Degraded run**: no LLM provider was reachable (no `GROQ_API_KEY`, no local Ollama) - replies came from the offline fallback stub, so most questions are expected to fail. This does not reflect an agent regression.
+
+**Pass rate: 0.0%** (0/25)
+
+| id | target | result | expected | agent reply |
+|---|---|---|---|---|
+| total_spend_all | chat | FAIL | 12045.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Qual è la spesa totale registrata finora?  ## Question Qual è la spesa totale registrata finora?  ## Scratchpad |
+| total_line_items_count | chat | FAIL | 17 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quante voci di spesa (line item) sono state registrate in totale?  ## Question Quante voci di spesa (line item) |
+| total_documents_count | chat | FAIL | 2 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanti documenti sono stati caricati in totale?  ## Question Quanti documenti sono stati caricati in totale?  # |
+| contract_documents_count | chat | FAIL | 1 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanti contratti sono stati caricati?  ## Question Quanti contratti sono stati caricati?  ## Scratchpad Observa |
+| acme_total_spend | chat | FAIL | 5700.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato in totale con il fornitore Acme Corp?  ## Question Quanto abbiamo spesato in totale con  |
+| office_depot_total_spend | chat | FAIL | 605.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato in totale con Office Depot?  ## Question Quanto abbiamo spesato in totale con Office Dep |
+| global_logistics_total_spend | chat | FAIL | 2020.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato in totale con Global Logistics?  ## Question Quanto abbiamo spesato in totale con Global |
+| cloudhost_total_spend | chat | FAIL | 1220.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato in totale con CloudHost Inc?  ## Question Quanto abbiamo spesato in totale con CloudHost |
+| hardware_category_total | chat | FAIL | 2500.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato nella categoria Hardware?  ## Question Quanto abbiamo spesato nella categoria Hardware?  |
+| january_month_total | chat | FAIL | 1940.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato nel mese di gennaio 2025?  ## Question Quanto abbiamo spesato nel mese di gennaio 2025?  |
+| february_month_total | chat | FAIL | 1960.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato nel mese di febbraio 2025?  ## Question Quanto abbiamo spesato nel mese di febbraio 2025 |
+| march_month_total | chat | FAIL | 2790.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato nel mese di marzo 2025?  ## Question Quanto abbiamo spesato nel mese di marzo 2025?  ##  |
+| april_month_total | chat | FAIL | 5355.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quanto abbiamo spesato nel mese di aprile 2025?  ## Question Quanto abbiamo spesato nel mese di aprile 2025?  # |
+| top_expense_amount | chat | FAIL | 2500.0 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Qual è l'importo della singola voce di spesa più alta registrata?  ## Question Qual è l'importo della singola v |
+| top_expense_supplier | chat | FAIL | None | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Qual è il fornitore associato alla spesa più alta registrata?  ## Question Qual è il fornitore associato alla s |
+| anomaly_count | chat | FAIL | 1 | [Offline] Cannot answer without an LLM. Received question: ## Conversation History User: Quante anomalie di spesa sono state rilevate?  ## Question Quante anomalie di spesa sono state rilevate?  ## Sc |
+| top_variance_supplier_cost_saving | cost_saving | FAIL | None | [Offline] Cannot answer without an LLM. Received question: ## Goal Quale fornitore ha avuto il maggiore aumento di spesa recente?  ## Scratchpad (empty)  |
+| acme_variance_pct | cost_saving | FAIL | 85.0 | [Offline] Cannot answer without an LLM. Received question: ## Goal Di quanto è variata percentualmente la spesa recente con Acme Corp rispetto al periodo precedente?  ## Scratchpad (empty)  |
+| office_depot_variance_pct | cost_saving | FAIL | 8.6 | [Offline] Cannot answer without an LLM. Received question: ## Goal Di quanto è variata percentualmente la spesa recente con Office Depot rispetto al periodo precedente?  ## Scratchpad (empty)  |
+| cloudhost_variance_pct | cost_saving | FAIL | 6.8 | [Offline] Cannot answer without an LLM. Received question: ## Goal Di quanto è variata percentualmente la spesa recente con CloudHost Inc rispetto al periodo precedente?  ## Scratchpad (empty)  |
+| global_logistics_variance_pct | cost_saving | FAIL | -2.0 | [Offline] Cannot answer without an LLM. Received question: ## Goal Di quanto è variata percentualmente la spesa recente con Global Logistics rispetto al periodo precedente?  ## Scratchpad (empty)  |
+| forecast_next_month_amount | forecast | FAIL | 5780.0 | [Offline] Cannot answer without an LLM. Received question: ## Goal Qual è la previsione di spesa per il prossimo mese?  ## Scratchpad (empty)  |
+| forecast_trend_direction | forecast | FAIL | None | [Offline] Cannot answer without an LLM. Received question: ## Goal Come evolve la spesa mensile secondo la previsione?  ## Scratchpad (empty)  |
+| contract_renewal_clause | contract_risk | FAIL | None | [Offline] Cannot answer without an LLM. Received question: ## Goal Con quanto preavviso va disdetto il contratto per evitare il rinnovo automatico?  ## Scratchpad (empty)  |
+| contract_penalty_clause | contract_risk | FAIL | None | [Offline] Cannot answer without an LLM. Received question: ## Goal A quanto ammonta la penale per il recesso anticipato dal contratto?  ## Scratchpad (empty)  |

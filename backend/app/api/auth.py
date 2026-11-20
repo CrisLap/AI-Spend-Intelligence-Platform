@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core import login_throttle
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.rate_limit import limiter
@@ -44,11 +45,17 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
 @router.post("/login", response_model=TokenOut)
 @limiter.limit("5/minute")
 def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
+    if login_throttle.is_locked(payload.email):
+        # Same status as the IP rate limit; checked before the password so a
+        # locked account can't be used as a password-guessing oracle.
+        raise HTTPException(status_code=429, detail="Too many failed attempts, try again later")
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
+        login_throttle.record_failure(payload.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
+    login_throttle.record_success(payload.email)
     log_action(db, user_id=user.id, action="login", entity_type="user", entity_id=user.id)
     token = create_access_token(user.id, user.role)
     return TokenOut(access_token=token, user=UserOut.model_validate(user))
