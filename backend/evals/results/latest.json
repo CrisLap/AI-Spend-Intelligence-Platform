@@ -1,5 +1,5 @@
 {
-  "pass_rate": 0.0,
+  "pass_rate": 0.44,
   "degraded": true,
   "results": [
     {
@@ -138,9 +138,9 @@
       "target": "chat",
       "compare": "numeric",
       "expected": 2500.0,
-      "actual": null,
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Qual è l'importo della singola voce di spesa più alta registrata?\n\n## Question\nQual è l'importo della singola voce di spesa più alta registrata?\n\n## Scratchpad\nObservatio",
-      "passed": false
+      "actual": 2500.0,
+      "reply": "L'importo della singola voce di spesa più alta registrata è di **€2.500,00** per la voce \"Emergency hardware replacement\" fornita da NewVendor LLC.",
+      "passed": true
     },
     {
       "id": "top_expense_supplier",
@@ -148,9 +148,9 @@
       "target": "chat",
       "compare": "contains_any",
       "expected": null,
-      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Qual è il fornitore associato alla spesa più alta registrata?\n\n## Question\nQual è il fornitore associato alla spesa più alta registrata?\n\n## Scratchpad\nObservation 0 (ini",
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Conversation History\nUser: Qual è il fornitore associato alla spesa più alta registrata?\n\n## Question\nQual è il fornitore associato alla spesa più alta registrata?\n\n## Scratchpad\nObservation 0 (ini",
-      "passed": false
+      "actual": "Il fornitore associato alla spesa più alta registrata è **NewVendor LLC**, con un importo di €2.500,00 per la voce \"Emergency hardware replacement\".",
+      "reply": "Il fornitore associato alla spesa più alta registrata è **NewVendor LLC**, con un importo di €2.500,00 per la voce \"Emergency hardware replacement\".",
+      "passed": true
     },
     {
       "id": "anomaly_count",
@@ -168,9 +168,9 @@
       "target": "cost_saving",
       "compare": "contains_any",
       "expected": null,
-      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nQuale fornitore ha avuto il maggiore aumento di spesa recente?\n\n## Scratchpad\n(empty)\n",
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nQuale fornitore ha avuto il maggiore aumento di spesa recente?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": "Il fornitore che ha avuto il maggiore aumento di spesa recente è Acme Corp, con un incremento del 85.0% (passando da €2.000,00 a €3.700,00) nella categoria IT Services.",
+      "reply": "Il fornitore che ha avuto il maggiore aumento di spesa recente è Acme Corp, con un incremento del 85.0% (passando da €2.000,00 a €3.700,00) nella categoria IT Services.",
+      "passed": true
     },
     {
       "id": "acme_variance_pct",
@@ -178,9 +178,9 @@
       "target": "cost_saving",
       "compare": "numeric",
       "expected": 85.0,
-      "actual": null,
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con Acme Corp rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": 85.0,
+      "reply": "La spesa recente con Acme Corp è aumentata del 85,0% rispetto al periodo precedente (passando da €2.000,00 a €3.700,00).",
+      "passed": true
     },
     {
       "id": "office_depot_variance_pct",
@@ -188,9 +188,9 @@
       "target": "cost_saving",
       "compare": "numeric",
       "expected": 8.6,
-      "actual": null,
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con Office Depot rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": 8.6,
+      "reply": "La spesa con Office Depot è variata del +8,6% rispetto al periodo precedente.",
+      "passed": true
     },
     {
       "id": "cloudhost_variance_pct",
@@ -198,9 +198,9 @@
       "target": "cost_saving",
       "compare": "numeric",
       "expected": 6.8,
-      "actual": null,
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con CloudHost Inc rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": 6.8,
+      "reply": "La spesa recente con CloudHost Inc è variata del +6,8% rispetto al periodo precedente (passando da €590,00 a €630,00).",
+      "passed": true
     },
     {
       "id": "global_logistics_variance_pct",
@@ -208,9 +208,9 @@
       "target": "cost_saving",
       "compare": "numeric",
       "expected": -2.0,
-      "actual": null,
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nDi quanto è variata percentualmente la spesa recente con Global Logistics rispetto al periodo precedente?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": -2.0,
+      "reply": "La spesa con Global Logistics è variata del -2,0% rispetto al periodo precedente.",
+      "passed": true
     },
     {
       "id": "forecast_next_month_amount",
@@ -218,9 +218,9 @@
       "target": "forecast",
       "compare": "numeric",
       "expected": 5780.0,
-      "actual": null,
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nQual è la previsione di spesa per il prossimo mese?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": 5780.0,
+      "reply": "La previsione di spesa per il prossimo mese è di €5.780,00.",
+      "passed": true
     },
     {
       "id": "forecast_trend_direction",
@@ -228,9 +228,9 @@
       "target": "forecast",
       "compare": "contains_any",
       "expected": null,
-      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCome evolve la spesa mensile secondo la previsione?\n\n## Scratchpad\n(empty)\n",
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCome evolve la spesa mensile secondo la previsione?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": "La spesa mensile segue una tendenza di crescita lineare di €1.107,50 al mese, con una previsione di €5.780,00 per il prossimo mese.",
+      "reply": "La spesa mensile segue una tendenza di crescita lineare di €1.107,50 al mese, con una previsione di €5.780,00 per il prossimo mese.",
+      "passed": true
     },
     {
       "id": "contract_renewal_clause",
@@ -238,9 +238,9 @@
       "target": "contract_risk",
       "compare": "contains_any",
       "expected": null,
-      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCon quanto preavviso va disdetto il contratto per evitare il rinnovo automatico?\n\n## Scratchpad\n(empty)\n",
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nCon quanto preavviso va disdetto il contratto per evitare il rinnovo automatico?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": "Per evitare il rinnovo automatico, il contratto deve essere disdetto con un preavviso di 90 giorni.",
+      "reply": "Per evitare il rinnovo automatico, il contratto deve essere disdetto con un preavviso di 90 giorni.",
+      "passed": true
     },
     {
       "id": "contract_penalty_clause",
@@ -248,9 +248,9 @@
       "target": "contract_risk",
       "compare": "contains_any",
       "expected": null,
-      "actual": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nA quanto ammonta la penale per il recesso anticipato dal contratto?\n\n## Scratchpad\n(empty)\n",
-      "reply": "[Offline] Cannot answer without an LLM. Received question: ## Goal\nA quanto ammonta la penale per il recesso anticipato dal contratto?\n\n## Scratchpad\n(empty)\n",
-      "passed": false
+      "actual": "La penale per il recesso anticipato è pari al 10% del valore residuo del contratto.",
+      "reply": "La penale per il recesso anticipato è pari al 10% del valore residuo del contratto.",
+      "passed": true
     }
   ]
 }
