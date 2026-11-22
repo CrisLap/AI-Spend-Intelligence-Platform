@@ -89,8 +89,8 @@ export default function DocumentView() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <button onClick={() => navigate("/app/documents")} className="text-xs text-muted hover:text-parchment">{t("back")}</button>
-        <h1 className="text-page-title font-bold">{doc.original_name}</h1>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${doc.status === "classified" ? "bg-ok/10 text-ok" : "bg-amber/10 text-amber"}`}>{doc.status}</span>
+        <h1 className="text-page-title font-medium">{doc.original_name}</h1>
+        <span className={`text-xs px-2 py-0.5 rounded-md ${doc.status === "classified" ? "bg-ok/10 text-ok" : "bg-amber/10 text-amber"}`}>{doc.status}</span>
       </div>
       <Card padding="none" className="overflow-hidden">
         <TableScroll>
@@ -112,7 +112,7 @@ export default function DocumentView() {
                       <select
                         value={pendingCategory[item.id] ?? item.category_label ?? ""}
                         onChange={(e) => setPendingCategory((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                        className="text-xs bg-panel-2 text-secondary rounded-md px-1.5 py-0.5 border-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                       >
                         {!item.category_label && <option value="">{t("notAvailable")}</option>}
                         {CATEGORIES.map((c) => <option key={c} value={c}>{t(c, { ns: "categories", defaultValue: c })}</option>)}
@@ -132,7 +132,7 @@ export default function DocumentView() {
                   <td className="p-3 text-xs text-muted">{item.confidence ? `${(item.confidence * 100).toFixed(0)}%` : "-"}</td>
                   <td className="p-3">
                     {item.is_anomaly ? (
-                      <span className="flex items-center gap-1 text-xs bg-danger/10 text-danger px-2 py-0.5 rounded-full" title={item.anomaly_reason || ""}>
+                      <span className="flex items-center gap-1 text-xs bg-danger/10 text-danger px-2 py-0.5 rounded-md" title={item.anomaly_reason || ""}>
                         <AlertTriangle size={12} aria-hidden="true" /> {t("anomalyBadge")}
                       </span>
                     ) : (
@@ -163,9 +163,9 @@ export default function DocumentView() {
                           onChange={(e) => setFeedbackComment(e.target.value)}
                           placeholder={t("feedbackPlaceholder")}
                           aria-label={t("feedbackPlaceholder")}
-                          className="flex-1 rounded-full border border-border bg-panel px-2 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                          className="flex-1 rounded-lg border border-border bg-panel px-2 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                         />
-                        <button onClick={() => submitFeedback(item)} className="text-xs rounded-full bg-amber px-3 py-1 font-semibold text-surface">
+                        <button onClick={() => submitFeedback(item)} className="text-xs rounded-lg bg-amber px-3 py-1 font-medium text-surface">
                           {t("submitFeedback")}
                         </button>
                       </div>

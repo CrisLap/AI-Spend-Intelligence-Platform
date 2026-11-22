@@ -39,18 +39,18 @@ export default function SemanticSearch() {
 
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
-      <h1 className="text-page-title font-bold">{t("title")}</h1>
+      <h1 className="text-page-title font-medium">{t("title")}</h1>
       <p className="text-xs text-muted">{t("description")}</p>
       <form onSubmit={handle} className="flex gap-2">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("placeholder")} aria-label={t("title")} className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
-        <button type="submit" className="rounded-full bg-teal px-4 py-2 text-xs font-semibold text-surface">{t("search")}</button>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("placeholder")} aria-label={t("title")} className="flex-1 rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
+        <button type="submit" className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-surface">{t("search")}</button>
       </form>
       {error && <p className="text-xs text-danger">{error}</p>}
       {results && (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-muted">{t("resultsCount", { count: results.length })}</p>
           {results.map((r, i) => (
-            <div key={i} className="rounded-2xl border border-border bg-panel backdrop-blur-md shadow-glass p-3">
+            <div key={i} className="rounded-xl border border-border bg-panel p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm">{r.description}</p>
                 <span className="text-xs text-muted">score {r.score}</span>

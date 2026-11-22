@@ -113,7 +113,7 @@ export default function CostSavingAgentPage() {
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div>
-        <h1 className="text-page-title font-bold">{t("title")}</h1>
+        <h1 className="text-page-title font-medium">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted">{t("subtitle")}</p>
       </div>
 
@@ -124,8 +124,8 @@ export default function CostSavingAgentPage() {
             key={type}
             onClick={() => handleAgentTypeChange(type)}
             disabled={running}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-              agentType === type ? "border-teal bg-teal/10 text-teal" : "border-border text-muted hover:text-parchment"
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              agentType === type ? "border-teal bg-panel-2 text-secondary" : "border-border text-muted hover:text-parchment"
             }`}
           >
             {AGENT_TYPES[type].label}
@@ -141,7 +141,7 @@ export default function CostSavingAgentPage() {
               type="button"
               key={g}
               onClick={() => setGoal(g)}
-              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+              className={`rounded-lg border px-3 py-1 text-xs transition-colors ${
                 goal === g ? "border-teal text-teal" : "border-border text-muted hover:text-parchment"
               }`}
             >
@@ -156,12 +156,12 @@ export default function CostSavingAgentPage() {
             disabled={running}
             placeholder={t("goalPlaceholder")}
             aria-label={t("goalPlaceholder")}
-            className="flex-1 rounded-full border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+            className="flex-1 rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
           />
           <button
             type="submit"
             disabled={running}
-            className="rounded-full bg-teal px-4 py-2 text-xs font-semibold text-surface disabled:opacity-50"
+            className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
           >
             {running ? t("analyzing") : t("analyze")}
           </button>
@@ -173,7 +173,7 @@ export default function CostSavingAgentPage() {
       {(running || run) && (
         <div className="flex flex-col gap-4">
           <Card>
-            <h2 className="mb-3 text-sm font-semibold">{t("reasoning")}</h2>
+            <h2 className="mb-3 text-sm font-medium">{t("reasoning")}</h2>
             {/* Live runs already arrive one step at a time over SSE, so no
                 extra client-side staging is needed (animate=false); a run
                 loaded from history replays with the staged reveal instead. */}
@@ -187,7 +187,7 @@ export default function CostSavingAgentPage() {
 
           {run && (
             <div>
-              <h2 className="mb-3 text-sm font-semibold">
+              <h2 className="mb-3 text-sm font-medium">
                 {run.recommendations.length > 0 ? t("recommendationsCount", { count: run.recommendations.length }) : t("recommendations")}
               </h2>
               {run.recommendations.length === 0 ? (
@@ -206,12 +206,12 @@ export default function CostSavingAgentPage() {
 
       {history.length > 0 && (
         <Card>
-          <h2 className="mb-3 text-sm font-semibold">{t("history")}</h2>
+          <h2 className="mb-3 text-sm font-medium">{t("history")}</h2>
           <div className="mb-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setHistoryTypeFilter("")}
-              className={`rounded-full border px-3 py-1 text-xs transition-colors ${historyTypeFilter === "" ? "border-teal text-teal" : "border-border text-muted hover:text-parchment"}`}
+              className={`rounded-lg border px-3 py-1 text-xs transition-colors ${historyTypeFilter === "" ? "border-teal text-teal" : "border-border text-muted hover:text-parchment"}`}
             >
               {t("historyFilter.all")}
             </button>
@@ -220,7 +220,7 @@ export default function CostSavingAgentPage() {
                 type="button"
                 key={type}
                 onClick={() => setHistoryTypeFilter(type)}
-                className={`rounded-full border px-3 py-1 text-xs transition-colors ${historyTypeFilter === type ? "border-teal text-teal" : "border-border text-muted hover:text-parchment"}`}
+                className={`rounded-lg border px-3 py-1 text-xs transition-colors ${historyTypeFilter === type ? "border-teal text-teal" : "border-border text-muted hover:text-parchment"}`}
               >
                 {AGENT_TYPES[type].label}
               </button>
@@ -230,7 +230,7 @@ export default function CostSavingAgentPage() {
               onChange={(e) => setHistorySearch(e.target.value)}
               placeholder={t("historyFilter.searchPlaceholder")}
               aria-label={t("historyFilter.searchPlaceholder")}
-              className="ml-auto min-w-[160px] rounded-full border border-border bg-panel-2 px-3 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+              className="ml-auto min-w-[160px] rounded-lg border border-border bg-panel-2 px-3 py-1 text-xs text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -244,7 +244,7 @@ export default function CostSavingAgentPage() {
                 className="flex items-center justify-between border-b border-border/60 py-1.5 text-left text-sm hover:text-teal"
               >
                 <span className="flex items-center gap-2">
-                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted">
+                  <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted">
                     {AGENT_TYPES[h.agent_type]?.label ?? h.agent_type}
                   </span>
                   {h.goal}

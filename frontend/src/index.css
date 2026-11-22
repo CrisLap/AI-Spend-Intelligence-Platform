@@ -1,48 +1,69 @@
 @import "tailwindcss";
 
+/* Direction: exact, calm, ledger-like. Neutral graphite surfaces, one
+   dark-green accent, figures in mono. Token names are kept (teal, amber,
+   parchment, ...) so existing utilities keep working; only values changed. */
 @theme {
-  --color-surface: #0a0f0c;
-  --color-panel: #12181580;
-  --color-panel-2: #1a2320b3;
-  --color-border: #2a3a32;
-  --color-muted: #7a8a82;
-  --color-parchment: #e9f0ec;
-  --color-teal: #4ade80;
-  --color-amber: #f59e0b;
-  --color-danger: #ef4444;
-  --color-ok: #22c55e;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
-  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --color-surface: #141415;
+  --color-sidebar: #0f0f10;
+  --color-panel: #19191b;
+  --color-panel-2: #232325;
+  --color-border: #ededed14;
+  --color-parchment: #ededed;
+  --color-secondary: #a1a1a6;
+  --color-muted: #85858b;
+  --color-teal: #2f9e5f;
+  --color-amber: #d19a3e;
+  --color-danger: #e5484d;
+  --color-ok: #4cc38a;
 
-  /* Reserved exclusively for the page-level <h1> and the primary KPI
-     number (Dashboard.tsx) - not general-purpose sizes. */
-  --text-page-title: 1.375rem;
-  --text-metric: 2rem;
+  /* Page-level <h1> and the primary KPI figure only. */
+  --text-page-title: 1.75rem;
+  --text-metric: 1.75rem;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  --default-transition-duration: 150ms;
 }
 
 /* Light theme overrides. `data-theme` is set on <html> by ThemeContext
-   (and, before React mounts, by the inline script in index.html) — the
-   values above stay the dark defaults. */
+   (and, before React mounts, by public/theme-init.js). */
 :root[data-theme="light"] {
-  --color-surface: #f2f7f4;
-  --color-panel: #ffffffcc;
-  --color-panel-2: #eaf3edb3;
-  --color-border: #d7e5dc;
-  --color-muted: #64766c;
-  --color-parchment: #16201a;
-  --color-teal: #16a34a;
-  --color-amber: #b45309;
+  --color-surface: #fafafa;
+  --color-sidebar: #f4f4f5;
+  --color-panel: #ffffff;
+  --color-panel-2: #f4f4f5;
+  --color-border: #17171714;
+  --color-parchment: #171717;
+  --color-secondary: #525252;
+  --color-muted: #737373;
+  --color-teal: #1d7a45;
+  --color-amber: #a8630a;
   --color-danger: #dc2626;
-  --color-ok: #15803d;
-
-  --shadow-glass: 0 8px 32px rgba(20, 40, 30, 0.12);
+  --color-ok: #16794a;
 }
 
-/* App-wide background: a flat neutral surface. Lives on <body> so it
-   never scrolls with page content. */
 body {
   background-color: var(--color-surface);
   min-height: 100vh;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Figures line up in columns everywhere. */
+.tabular, .font-mono { font-variant-numeric: tabular-nums; }
+
+/* Visible keyboard focus, inside the palette. */
+:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
 /* Indeterminate progress bar used while a document is uploading/processing

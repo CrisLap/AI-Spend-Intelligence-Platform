@@ -1,3 +1,5 @@
+import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useToast, type ToastVariant } from "../context/ToastContext";
 
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
@@ -7,6 +9,7 @@ const VARIANT_CLASSES: Record<ToastVariant, string> = {
 };
 
 export default function ToastContainer() {
+  const { t } = useTranslation("common");
   const { toasts, dismissToast } = useToast();
 
   return (
@@ -14,18 +17,18 @@ export default function ToastContainer() {
       aria-live="polite"
       className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)]"
     >
-      {toasts.map((t) => (
+      {toasts.map((toast) => (
         <div
-          key={t.id}
-          className={`rounded border px-3 py-2 text-sm shadow-lg flex items-start justify-between gap-2 ${VARIANT_CLASSES[t.variant]}`}
+          key={toast.id}
+          className={`rounded-lg border px-3 py-2 text-sm flex items-start justify-between gap-2 ${VARIANT_CLASSES[toast.variant]}`}
         >
-          <span className="flex-1">{t.message}</span>
+          <span className="flex-1">{toast.message}</span>
           <button
-            onClick={() => dismissToast(t.id)}
-            aria-label="Dismiss"
-            className="text-xs opacity-60 hover:opacity-100"
+            onClick={() => dismissToast(toast.id)}
+            aria-label={t("dismiss")}
+            className="mt-0.5 opacity-60 transition-opacity hover:opacity-100"
           >
-            ✕
+            <X size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
         </div>
       ))}

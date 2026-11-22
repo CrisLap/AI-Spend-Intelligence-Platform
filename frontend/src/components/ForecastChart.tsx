@@ -7,13 +7,11 @@ export type ForecastChartData = {
   forecast_next_month: number;
 };
 
-// Reuses the exact two colors already established in Dashboard.tsx's
-// COLORS palette (teal for the primary series, amber for a
-// caution/projected one) rather than introducing new hues for this one
-// embedded chart.
-const ACTUAL_COLOR = "#2dd4bf";
-const FORECAST_COLOR = "#f59e0b";
-const AXIS_TICK = { fontSize: 11, fill: "#6b6b80" };
+// Two series, two meanings: the accent for actual spend, amber for the
+// projected month. Both come from the theme tokens so light/dark both work.
+const ACTUAL_COLOR = "var(--color-teal)";
+const FORECAST_COLOR = "var(--color-amber)";
+const AXIS_TICK = { fontSize: 12, fill: "var(--color-muted)", fontFamily: "var(--font-mono)" };
 
 export default function ForecastChart({ chart }: { chart: ForecastChartData }) {
   const { t } = useTranslation("costSaving");
@@ -35,14 +33,14 @@ export default function ForecastChart({ chart }: { chart: ForecastChartData }) {
     <div className="mt-2">
       <ResponsiveContainer width="100%" height={180}>
         <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3a" vertical={false} />
-          <XAxis dataKey="month" tick={AXIS_TICK} />
-          <YAxis tick={AXIS_TICK} width={48} />
+          <CartesianGrid stroke="var(--color-border)" vertical={false} />
+          <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} />
+          <YAxis tick={AXIS_TICK} width={48} axisLine={false} tickLine={false} />
           <Tooltip
-            contentStyle={{ background: "#1a1a26", border: "1px solid #2a2a3a", fontSize: 12 }}
-            labelStyle={{ color: "#e8e8ed" }}
+            contentStyle={{ background: "var(--color-panel)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
+            labelStyle={{ color: "var(--color-parchment)" }}
           />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
           <Line
             type="monotone"
             dataKey="actual"

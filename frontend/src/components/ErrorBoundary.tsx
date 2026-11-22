@@ -5,16 +5,16 @@ function ErrorFallback({ error }: { error: Error | null }) {
   const { t } = useTranslation("common");
   return (
     <div className="flex h-full min-h-[50vh] flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="text-sm font-semibold text-danger">{t("errorBoundary.title")}</p>
+      <p className="text-sm font-medium text-danger">{t("errorBoundary.title")}</p>
       <p className="text-xs text-muted">{t("errorBoundary.description")}</p>
       <button
         onClick={() => window.location.reload()}
-        className="rounded bg-teal px-4 py-1.5 text-xs font-semibold text-surface"
+        className="rounded bg-teal px-4 py-2 text-sm font-medium text-surface"
       >
         {t("errorBoundary.reload")}
       </button>
       {import.meta.env.DEV && error && (
-        <pre className="mt-2 max-w-full overflow-auto rounded bg-panel-2 p-2 text-left text-[10px] text-muted">
+        <pre className="mt-2 max-w-full overflow-auto rounded bg-panel-2 p-2 text-left text-xs text-muted">
           {error.stack || error.message}
         </pre>
       )}

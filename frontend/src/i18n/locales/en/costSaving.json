@@ -14,7 +14,7 @@
     },
     "contract_risk": {
       "label": "Contract Risk",
-      "description": "Searches indexed contracts for risky clauses — penalties, exclusivity, missing price caps.",
+      "description": "Searches indexed contracts for risky clauses - penalties, exclusivity, missing price caps.",
       "presetGoals": ["Check contract risks", "Check expiring contracts"]
     }
   },

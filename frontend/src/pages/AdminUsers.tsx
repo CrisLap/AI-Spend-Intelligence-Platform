@@ -91,10 +91,10 @@ export default function AdminUsers() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-page-title font-bold">{t("title")}</h1>
+        <h1 className="text-page-title font-medium">{t("title")}</h1>
         <div className="flex items-center gap-2">
           {retrainMessage && <span className="text-xs text-muted">{retrainMessage}</span>}
-          <button onClick={handleRetrain} disabled={retraining} className="rounded-full bg-teal px-4 py-1.5 text-xs font-semibold text-surface disabled:opacity-50">
+          <button onClick={handleRetrain} disabled={retraining} className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-surface disabled:opacity-50">
             {retraining ? t("retraining") : t("retrainButton")}
           </button>
         </div>
@@ -119,7 +119,7 @@ export default function AdminUsers() {
                       <select
                         value={u.role}
                         onChange={(e) => handleRoleSelect(u, e.target.value)}
-                        className="text-xs bg-teal/10 text-teal rounded-full px-1.5 py-0.5 border-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                        className="text-xs bg-panel-2 text-secondary rounded-md px-1.5 py-0.5 border-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                       >
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>

@@ -52,16 +52,16 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
       <div className="flex flex-1 items-center justify-center">
         <form onSubmit={handle} className="w-full max-w-sm">
           <Card padding="lg" className="flex flex-col gap-4">
-            <h1 className="text-lg font-bold text-teal">{t("common:tagline")}</h1>
-            <p className="text-xs text-muted">{isRegister ? t("createAccount") : t("signInPrompt")}</p>
+            <h1 className="text-lg font-medium text-parchment">{t("common:tagline")}</h1>
+            <p className="text-sm text-secondary">{isRegister ? t("createAccount") : t("signInPrompt")}</p>
             {isRegister && (
               <>
                 <label htmlFor={nameId} className="sr-only">{t("fullNamePlaceholder")}</label>
                 <input id={nameId} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fullNamePlaceholder")} required
-                  className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
+                  className="rounded-lg border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
                 <label htmlFor={roleId} className="text-xs text-muted">{t("roleLabel")}</label>
                 <select id={roleId} value={role} onChange={(e) => setRole(e.target.value)}
-                  className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">
+                  className="rounded-lg border border-border bg-panel-2 px-4 py-2 text-sm text-parchment focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">
                   <option value="buyer">{t("roleBuyer")}</option>
                   <option value="finance">{t("roleFinance")}</option>
                 </select>
@@ -69,7 +69,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
             )}
             <label htmlFor={emailId} className="sr-only">{t("emailPlaceholder")}</label>
             <input id={emailId} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} required
-              className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
+              className="rounded-lg border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
             <label htmlFor={passwordId} className="sr-only">{t("passwordPlaceholder")}</label>
             <input
               id={passwordId} type="password" value={password} onChange={(e) => setPassword(e.target.value)}
@@ -78,13 +78,13 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
               // 10-character rule was added may still have shorter passwords
               // already hashed in the DB, and this must not block their login.
               minLength={isRegister ? 10 : undefined}
-              className="rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
+              className="rounded-lg border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
             {isRegister && <p className="text-xs text-muted -mt-2">{t("passwordHint")}</p>}
-            {error && <p className="text-xs text-danger">{error}</p>}
-            <button type="submit" className="rounded-full bg-teal py-2 text-sm font-semibold text-surface hover:opacity-90">
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <button type="submit" className="h-10 rounded-lg bg-teal text-sm font-medium text-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:brightness-110 active:scale-[0.98]">
               {isRegister ? t("register") : t("signIn")}
             </button>
-            <button type="button" onClick={() => setIsRegister(!isRegister)} className="text-xs text-muted hover:text-parchment">
+            <button type="button" onClick={() => setIsRegister(!isRegister)} className="text-sm text-muted transition-colors hover:text-parchment">
               {isRegister ? t("switchToSignIn") : t("switchToRegister")}
             </button>
           </Card>

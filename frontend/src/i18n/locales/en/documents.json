@@ -27,7 +27,7 @@
   "dropzone": {
     "hint": "Drag & drop a file here",
     "orClick": "or click to browse",
-    "allowedTypes": "PDF, Excel, CSV, PNG, JPEG — up to {{maxMb}}MB",
+    "allowedTypes": "PDF, Excel, CSV, PNG, JPEG - up to {{maxMb}}MB",
     "remove": "Remove file",
     "invalidFileType": "Unsupported file type. Allowed: PDF, Excel, CSV, PNG, JPEG.",
     "fileTooLarge": "File exceeds the {{maxMb}}MB upload limit."

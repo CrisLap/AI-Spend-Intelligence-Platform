@@ -27,14 +27,14 @@ export default function RecommendationCard({ rec }: { rec: Recommendation }) {
   return (
     <div className="flex flex-col gap-2 rounded border border-border bg-panel p-4">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold text-parchment">{rec.title}</h3>
+        <h3 className="text-sm font-medium text-parchment">{rec.title}</h3>
         <span className={`shrink-0 text-xs capitalize ${CONFIDENCE_STYLE[rec.confidence] ?? "text-muted"}`}>
           {rec.confidence}
         </span>
       </div>
 
       {rec.estimated_saving != null && (
-        <p className="text-2xl font-bold text-teal">
+        <p className="text-2xl font-medium text-teal">
           {CURRENCY_SYMBOL[rec.currency] ?? `${rec.currency} `}
           {rec.estimated_saving.toLocaleString()}
           <span className="ml-1 text-xs font-normal text-muted">{t("card.perYearEstimated")}</span>

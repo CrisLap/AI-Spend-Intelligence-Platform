@@ -9,7 +9,7 @@ const components: Components = {
   ul: ({ children }) => <ul className="mb-2 ml-4 list-disc last:mb-0">{children}</ul>,
   ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-0.5">{children}</li>,
-  strong: ({ children }) => <strong className="font-semibold text-parchment">{children}</strong>,
+  strong: ({ children }) => <strong className="font-medium text-parchment">{children}</strong>,
   code: ({ children }) => (
     <code className="rounded bg-panel-2 px-1 py-0.5 font-mono text-[0.85em]">{children}</code>
   ),

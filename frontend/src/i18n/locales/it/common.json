@@ -21,7 +21,7 @@
     "delete": "Elimina",
     "confirm": "Conferma"
   },
-  "backendWaking": "Il backend si sta risvegliando — il piano free va in sleep dopo inattività, la prima richiesta può richiedere fino a un minuto…",
+  "backendWaking": "Il backend si sta risvegliando - il piano free va in sleep dopo inattività, la prima richiesta può richiedere fino a un minuto…",
   "language": {
     "en": "EN",
     "it": "IT"
@@ -39,6 +39,7 @@
     "backHome": "Torna alla Dashboard"
   },
   "retry": "Riprova",
+  "dismiss": "Chiudi",
   "theme": {
     "switchToLight": "Passa al tema chiaro",
     "switchToDark": "Passa al tema scuro"

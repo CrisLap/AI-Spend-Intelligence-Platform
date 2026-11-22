@@ -1,4 +1,4 @@
-const PADDING = { none: "", md: "p-4", lg: "p-6", xl: "p-12" } as const;
+const PADDING = { none: "", md: "p-5", lg: "p-6", xl: "p-12" } as const;
 
 export default function Card({
   children,
@@ -10,7 +10,7 @@ export default function Card({
   padding?: keyof typeof PADDING;
 }) {
   return (
-    <div className={`rounded-2xl border border-border bg-panel backdrop-blur-md shadow-glass ${PADDING[padding]} ${className}`}>
+    <div className={`rounded-xl border border-border bg-panel ${PADDING[padding]} ${className}`}>
       {children}
     </div>
   );

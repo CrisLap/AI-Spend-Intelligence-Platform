@@ -38,12 +38,12 @@ export default function Layout({ children, user, onLogout }: { children: React.R
       {/* Top bar: app identity on the left, theme/language/account controls
           on the right - visible at every breakpoint, unlike the old
           mobile-only bar. */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-panel backdrop-blur-md px-4 py-3">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface px-4">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(true)} aria-label={t("openMenu")} className="md:hidden text-parchment">
             <Menu size={20} aria-hidden="true" />
           </button>
-          <span className="text-sm font-semibold text-teal">{t("appName")}</span>
+          <span className="text-base font-medium text-parchment">{t("appName")}</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-1">
@@ -51,8 +51,8 @@ export default function Layout({ children, user, onLogout }: { children: React.R
               <button
                 key={lng}
                 onClick={() => i18n.changeLanguage(lng)}
-                className={`rounded-full px-2 py-0.5 text-xs font-semibold transition-colors ${
-                  i18n.resolvedLanguage === lng ? "bg-teal/10 text-teal" : "text-muted hover:text-parchment"
+                className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                  i18n.resolvedLanguage === lng ? "bg-panel-2 text-parchment" : "text-muted hover:text-parchment"
                 }`}
               >
                 {t(`language.${lng}`)}
@@ -63,15 +63,15 @@ export default function Layout({ children, user, onLogout }: { children: React.R
             onClick={toggleTheme}
             aria-label={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
             title={theme === "dark" ? t("theme.switchToLight") : t("theme.switchToDark")}
-            className="rounded-full p-2 text-muted hover:text-parchment hover:bg-panel-2 transition-colors"
+            className="rounded-lg p-2 text-muted hover:text-parchment hover:bg-panel-2 transition-colors"
           >
             {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
           </button>
           <div className="hidden sm:flex flex-col items-end leading-tight">
-            <span className="text-xs text-parchment">{user.full_name}</span>
-            <span className="text-[10px] text-muted/70">{user.role}</span>
+            <span className="text-sm text-parchment">{user.full_name}</span>
+            <span className="text-xs text-muted">{user.role}</span>
           </div>
-          <button onClick={onLogout} className="text-xs text-danger hover:underline">{t("logout")}</button>
+          <button onClick={onLogout} className="rounded-md px-2 py-1 text-sm text-secondary hover:text-parchment hover:bg-panel-2 transition-colors">{t("logout")}</button>
         </div>
       </header>
 
@@ -85,7 +85,7 @@ export default function Layout({ children, user, onLogout }: { children: React.R
         )}
 
         <aside
-          className={`w-60 border-r border-border bg-panel backdrop-blur-md p-4 flex flex-col gap-1 shrink-0 fixed inset-y-0 left-0 z-50 top-14 transform overflow-y-auto transition-transform duration-200 md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] md:translate-x-0 ${
+          className={`w-60 border-r border-border bg-sidebar p-3 flex flex-col gap-0.5 shrink-0 fixed inset-y-0 left-0 z-50 top-14 transform overflow-y-auto transition-transform duration-200 md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] md:translate-x-0 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -99,13 +99,13 @@ export default function Layout({ children, user, onLogout }: { children: React.R
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === "/app"}
               className={({ isActive }) =>
-                `flex items-center gap-2 rounded-full px-3 py-2 text-sm transition-colors ${isActive ? "bg-teal text-surface font-semibold" : "text-muted hover:text-parchment hover:bg-panel-2"}`
+                `flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm transition-colors ${isActive ? "bg-panel-2 text-parchment font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" : "text-secondary hover:text-parchment hover:bg-panel-2/60"}`
               }>
-              <n.icon size={16} aria-hidden="true" /> {t(n.labelKey)}
+              <n.icon size={16} strokeWidth={1.5} aria-hidden="true" className="shrink-0 text-muted" /> {t(n.labelKey)}
             </NavLink>
           ))}
         </aside>
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+        <main className="flex-1 min-w-0 overflow-auto p-6 md:p-8"><div className="mx-auto w-full max-w-[1440px]">{children}</div></main>
       </div>
     </div>
   );

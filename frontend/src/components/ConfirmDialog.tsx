@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 type ConfirmDialogProps = {
   open: boolean;
   title: string;
@@ -12,11 +14,13 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation("common");
+
   if (!open) return null;
 
   return (
@@ -26,21 +30,21 @@ export default function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
     >
-      <div className="w-full max-w-sm rounded border border-border bg-panel p-4 shadow-xl">
-        <h2 id="confirm-dialog-title" className="text-sm font-semibold text-parchment">{title}</h2>
-        <p className="mt-2 text-xs text-muted">{message}</p>
+      <div className="w-full max-w-sm rounded-xl border border-border bg-panel p-5">
+        <h2 id="confirm-dialog-title" className="text-sm font-medium text-parchment">{title}</h2>
+        <p className="mt-2 text-sm text-secondary">{message}</p>
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="rounded border border-border px-3 py-1.5 text-xs text-muted hover:text-parchment"
+            className="rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm text-parchment transition-colors hover:bg-panel-2/70"
           >
-            {cancelLabel}
+            {cancelLabel ?? t("actions.cancel")}
           </button>
           <button
             onClick={onConfirm}
-            className="rounded bg-danger px-3 py-1.5 text-xs font-semibold text-surface"
+            className="rounded-lg bg-danger px-3 py-2 text-sm font-medium text-white transition hover:brightness-110 active:scale-[0.98]"
           >
-            {confirmLabel}
+            {confirmLabel ?? t("actions.confirm")}
           </button>
         </div>
       </div>

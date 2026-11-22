@@ -21,7 +21,7 @@
     "delete": "Delete",
     "confirm": "Confirm"
   },
-  "backendWaking": "Waking up the server — the free tier sleeps after inactivity, the first request can take up to a minute…",
+  "backendWaking": "Waking up the server - the free tier sleeps after inactivity, the first request can take up to a minute…",
   "language": {
     "en": "EN",
     "it": "IT"
@@ -39,6 +39,7 @@
     "backHome": "Back to Dashboard"
   },
   "retry": "Retry",
+  "dismiss": "Dismiss",
   "theme": {
     "switchToLight": "Switch to light theme",
     "switchToDark": "Switch to dark theme"

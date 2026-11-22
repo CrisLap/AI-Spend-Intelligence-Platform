@@ -16,8 +16,8 @@ function GithubMark({ size = 14 }: { size?: number }) {
 export default function PublicHeader() {
   const { t } = useTranslation(["landing", "common"]);
   return (
-    <header className="flex items-center justify-between max-w-6xl mx-auto w-full px-6 py-4">
-      <Link to="/" className="text-sm font-semibold text-teal">
+    <header className="flex h-16 items-center justify-between max-w-6xl mx-auto w-full px-6">
+      <Link to="/" className="text-base font-medium text-parchment">
         {t("common:appName")}
       </Link>
       <nav className="flex items-center gap-4">
@@ -25,11 +25,11 @@ export default function PublicHeader() {
           href={GITHUB_URL}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1 text-xs text-muted hover:text-parchment"
+          className="flex items-center gap-2 text-sm text-secondary hover:text-parchment transition-colors"
         >
           <GithubMark /> {t("githubLink")}
         </a>
-        <Link to="/login" className="rounded-full bg-teal px-4 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
+        <Link to="/login" className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-surface hover:brightness-110 active:scale-[0.98] transition">
           {t("loginLink")}
         </Link>
       </nav>

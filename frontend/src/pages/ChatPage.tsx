@@ -149,7 +149,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-8rem)]">
       <Card className="flex flex-col flex-1 min-w-0">
-        <h1 className="text-page-title font-bold mb-4">{t("title")}</h1>
+        <h1 className="text-page-title font-medium mb-4">{t("title")}</h1>
         <div className="flex-1 overflow-auto flex flex-col gap-3 mb-3">
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
@@ -158,25 +158,25 @@ export default function ChatPage() {
               </div>
               <div className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} max-w-[80%]`}>
                 {m.suggestion ? (
-                  <div className="rounded-2xl border border-teal/40 bg-teal/10 px-3 py-2 text-sm text-parchment">
+                  <div className="rounded-xl border border-teal/40 bg-teal/10 px-3 py-2 text-sm text-parchment">
                     <p>
                       <Trans
                         t={t}
                         i18nKey="handoff.message"
                         values={{ agent: t(`agentTypeLabel.${m.suggestion.agent_type}`, { defaultValue: m.suggestion.agent_type }) }}
-                        components={{ b: <span className="font-semibold" /> }}
+                        components={{ b: <span className="font-medium" /> }}
                       />
                     </p>
                     <button
                       type="button"
                       onClick={() => navigate("/app/cost-saving", { state: { agentType: m.suggestion!.agent_type, goal: m.suggestion!.goal } })}
-                      className="mt-2 rounded-full bg-teal px-3 py-1 text-xs font-semibold text-surface"
+                      className="mt-2 rounded-lg bg-teal px-3 py-1 text-xs font-medium text-surface"
                     >
                       {t("handoff.openButton")}
                     </button>
                   </div>
                 ) : (
-                  <div className={`w-full rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-teal text-surface" : "bg-panel-2 text-parchment"}`}>
+                  <div className={`w-full rounded-xl px-3 py-2 text-sm ${m.role === "user" ? "bg-teal text-surface" : "bg-panel-2 text-parchment"}`}>
                     {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
                   </div>
                 )}
@@ -232,11 +232,11 @@ export default function ChatPage() {
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-panel-2 text-teal">
                 <Bot size={14} aria-hidden="true" />
               </div>
-              <div className="max-w-[80%] w-full rounded-2xl px-3 py-2 text-sm bg-panel-2 text-parchment">
+              <div className="max-w-[80%] w-full rounded-xl px-3 py-2 text-sm bg-panel-2 text-parchment">
                 {liveSteps.length > 0 ? (
                   <AgentStepTimeline steps={liveSteps} animate={false} />
                 ) : (
-                  <span className="italic text-muted">{t("thinking")}</span>
+                  <span className="text-muted">{t("thinking")}</span>
                 )}
               </div>
             </div>
@@ -246,8 +246,8 @@ export default function ChatPage() {
         <form onSubmit={handle} className="flex gap-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("placeholder")} disabled={loading}
             aria-label={t("placeholder")}
-            className="flex-1 rounded-full border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
-          <button type="submit" disabled={loading} className="rounded-full bg-teal px-4 py-2 text-xs font-semibold text-surface disabled:opacity-50">
+            className="flex-1 rounded-lg border border-border bg-panel-2 px-4 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal" />
+          <button type="submit" disabled={loading} className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-surface disabled:opacity-50">
             {loading ? "..." : t("send")}
           </button>
         </form>
@@ -255,10 +255,10 @@ export default function ChatPage() {
 
       <Card className="flex flex-col w-full lg:w-72 shrink-0 overflow-hidden">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-parchment">{t("history.title")}</h2>
+          <h2 className="text-sm font-medium text-parchment">{t("history.title")}</h2>
           <button
             onClick={handleNewChat}
-            className="flex items-center gap-1 rounded-full bg-teal/15 px-3 py-1 text-xs font-semibold text-teal hover:bg-teal/25"
+            className="flex items-center gap-1 rounded-lg bg-teal/15 px-3 py-1 text-xs font-medium text-teal hover:bg-teal/25"
           >
             <Plus size={13} aria-hidden="true" /> {t("history.newChat")}
           </button>
@@ -267,7 +267,7 @@ export default function ChatPage() {
           {sessions.length === 0 && <p className="text-xs text-muted">{t("history.empty")}</p>}
           {groupedSessions.map((group) => (
             <div key={group.label}>
-              <p className="text-[10px] text-muted mb-1">{group.label}</p>
+              <p className="text-xs text-muted mb-1">{group.label}</p>
               <div className="flex flex-col gap-1">
                 {group.items.map((s) => (
                   <div

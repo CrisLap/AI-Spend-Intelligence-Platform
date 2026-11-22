@@ -21,7 +21,7 @@
   },
   "promoteDialog": {
     "title": "Promote to admin",
-    "message": "Make {{email}} an admin? Admin is a single role — the current admin will be automatically demoted.",
+    "message": "Make {{email}} an admin? Admin is a single role - the current admin will be automatically demoted.",
     "confirm": "Promote"
   }
 }

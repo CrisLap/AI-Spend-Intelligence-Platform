@@ -83,7 +83,7 @@ export default function DuplicatesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-page-title font-bold">{t("title")}</h1>
+      <h1 className="text-page-title font-medium">{t("title")}</h1>
 
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -91,7 +91,7 @@ export default function DuplicatesPage() {
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("common:search")}
           aria-label={t("common:search")}
-          className="flex-1 min-w-[180px] rounded-full border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+          className="flex-1 min-w-[180px] rounded-lg border border-border bg-panel-2 px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:outline-none focus:border-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
         />
         <label className="flex items-center gap-1.5 text-xs text-muted">
           <input
@@ -115,11 +115,11 @@ export default function DuplicatesPage() {
           {!error && groups.length === 0 && <p className="text-ok text-sm">{urlSearch ? t("noResults") : t("empty")}</p>}
           <div className="flex flex-col gap-4">
             {groups.map((g) => (
-              <div key={g.id} className={`rounded-2xl border p-3 backdrop-blur-md ${g.resolved ? "border-border bg-panel shadow-glass" : "border-amber/30 bg-amber/5"}`}>
+              <div key={g.id} className={`rounded-xl border p-3 ${g.resolved ? "border-border bg-panel" : "border-amber/30 bg-amber/5"}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs bg-amber/10 text-amber px-2 py-0.5 rounded-full">{t("group")}</span>
+                  <span className="text-xs bg-amber/10 text-amber px-2 py-0.5 rounded-md">{t("group")}</span>
                   <span className="text-xs text-muted">{g.reason}</span>
-                  {g.resolved && <span className="text-xs bg-ok/10 text-ok px-2 py-0.5 rounded-full">{t("common:resolved")}</span>}
+                  {g.resolved && <span className="text-xs bg-ok/10 text-ok px-2 py-0.5 rounded-md">{t("common:resolved")}</span>}
                 </div>
                 <div className="flex flex-col gap-1">
                   {g.items.map((item) => (
@@ -146,7 +146,7 @@ export default function DuplicatesPage() {
         </>
       )}
       {hasMore && (
-        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded-full border border-border px-4 py-1.5 text-xs text-muted hover:text-parchment disabled:opacity-50">
+        <button onClick={loadMore} disabled={loadingMore} className="self-center rounded-lg border border-border px-4 py-2 text-sm text-muted hover:text-parchment disabled:opacity-50">
           {loadingMore ? t("common:loading") : t("common:loadMore")}
         </button>
       )}

@@ -27,7 +27,7 @@
   "dropzone": {
     "hint": "Trascina qui un file",
     "orClick": "oppure clicca per sfogliare",
-    "allowedTypes": "PDF, Excel, CSV, PNG, JPEG — fino a {{maxMb}}MB",
+    "allowedTypes": "PDF, Excel, CSV, PNG, JPEG - fino a {{maxMb}}MB",
     "remove": "Rimuovi file",
     "invalidFileType": "Tipo di file non supportato. Consentiti: PDF, Excel, CSV, PNG, JPEG.",
     "fileTooLarge": "Il file supera il limite di caricamento di {{maxMb}}MB."

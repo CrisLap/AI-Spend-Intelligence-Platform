@@ -57,7 +57,7 @@ export default function AgentStepTimeline({ steps, animate = true }: { steps: Ag
               <span className="text-muted">{t("timeline.action")}</span> {s.tool}
               {s.tool_input ? `("${s.tool_input}")` : ""}
               {s.mode && (
-                <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted">
+                <span className="ml-2 rounded-md border border-border px-2 py-0.5 text-xs text-muted">
                   {t(`timeline.mode.${s.mode}`, { defaultValue: s.mode })}
                 </span>
               )}
@@ -70,7 +70,7 @@ export default function AgentStepTimeline({ steps, animate = true }: { steps: Ag
           )}
         </div>
       ))}
-      {animate && visible < steps.length && <p className="text-xs italic text-muted">{t("timeline.analyzing")}</p>}
+      {animate && visible < steps.length && <p className="text-xs text-muted">{t("timeline.analyzing")}</p>}
     </div>
   );
 }
