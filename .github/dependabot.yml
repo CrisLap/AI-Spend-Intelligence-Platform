@@ -9,6 +9,13 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    # react-i18next 18 needs i18next >= 27, while the project is on i18next 26,
+    # so its Dependabot PR fails `npm ci` with ERESOLVE (and 18's types also
+    # need a small ChatPage.tsx fix). Skip the major until i18next is upgraded
+    # to 27 together with it, then remove this block.
+    ignore:
+      - dependency-name: "react-i18next"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
