@@ -20,6 +20,14 @@ type Dash = {
 
 const LIST_LIMIT = 6;
 
+// One accent per chart: the peak month carries the accent, every other month
+// sits in a neutral step. The per-entry `fill` is read by recharts' <Bar>.
+const BAR_NEUTRAL = "color-mix(in srgb, var(--color-muted) 45%, transparent)";
+function withPeakAccent(months: Dash["spend_by_month"]) {
+  const peak = months.reduce((max, m) => Math.max(max, m.total), 0);
+  return months.map((m) => ({ ...m, fill: m.total === peak ? "var(--color-teal)" : BAR_NEUTRAL }));
+}
+
 const TOOLTIP_STYLE = {
   background: "var(--color-panel)",
   border: "1px solid var(--color-border)",
@@ -80,6 +88,7 @@ export default function Dashboard() {
     );
   }
   if (!data) return <InlineError message={t("loadingError")} onRetry={load} />;
+  const monthlyBars = withPeakAccent(data.spend_by_month);
 
   if (data.total_documents === 0) {
     return (
@@ -146,7 +155,7 @@ export default function Dashboard() {
               the chart fills whatever is left instead of leaving dead space. */}
           <div className="min-h-[320px] flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.spend_by_month} margin={{ left: 0, right: 0, top: 4 }}>
+              <BarChart data={monthlyBars} margin={{ left: 0, right: 0, top: 4 }}>
                 <CartesianGrid vertical={false} stroke="var(--color-border)" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={AXIS_TICK} />
                 <YAxis axisLine={false} tickLine={false} width={64} tick={AXIS_TICK} tickFormatter={(v) => num.format(Number(v))} />
